@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autonomous AI Agent Platform</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #0a0a0f;
+  color: #ffffff;
+  font-family: 'Courier New', monospace;
+  overflow-x: hidden;
+}
+
+.header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+  text-align: center;
+  border-bottom: 3px solid #00ff88;
+}
+
+.header h1 {
+  font-size: 2em;
+  text-shadow: 0 0 10px #00ff88;
+}
+
+.header p {
+  color: #00ff88;
+  margin-top: 5px;
+}
+
+.container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.panel {
+  background: #1a1a2e;
+  border: 1px solid #00ff88;
+  border-radius: 5px;
+  padding: 15px;
+  box-shadow: 0 0 15px rgba(0, 255, 136, 0.2);
+}
+
+.panel h2 {
+  color: #00ff88;
+  margin-bottom: 10px;
+  font-size: 1.2em;
+  border-bottom: 1px solid #00ff88;
+  padding-bottom: 5px;
+}
+
+.terminal {
+  background: #000000;
+  border: 1px solid #333;
+  border-radius: 3px;
+  padding: 10px;
+  height: 400px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.terminal-line {
+  margin: 2px 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.terminal-line.info {
+  color: #00ff88;
+}
+
+.terminal-line.error {
+  color: #ff4444;
+}
+
+.terminal-line.warning {
+  color: #ffaa00;
+}
+
+.terminal-line.system {
+  color: #00aaff;
+}
+
+.terminal-line.output {
+  color: #ffffff;
+}
+
+.input-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.input-group input {
+  flex: 1;
+  background: #000000;
+  border: 1px solid #00ff88;
+  color: #00ff88;
+  padding: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+}
+
+.input-group button {
+  background: #00ff88;
+  color: #000000;
+  border: none;
+  padding: 8px 20px;
+  cursor: pointer;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+}
+
+.input-group button:hover {
+  background: #00cc66;
+}
+
+.model-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.model-card {
+  background: #16213e;
+  border: 1px solid #00ff88;
+  border-radius: 3px;
+  padding: 10px;
+  text-align: center;
+}
+
+.model-card .name {
+  color: #00ff88;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.model-card .status {
+  font-size: 11px;
+  color: #ffaa00;
+}
+
+.model-card.active {
+  border-color: #00ff88;
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+}
+
+.model-card.active .status {
+  color: #00ff88;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.stat {
+  background: #16213e;
+  border-left: 3px solid #00ff88;
+  padding: 8px;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #888;
+}
+
+.stat-value {
+  font-size: 18px;
+  color: #00ff88;
+  font-weight: bold;
+}
+
+@media (max-width: 768px) {
+  .container {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🤖 AUTONOMOUS AI AGENT PLATFORM</h1>
+  <p>Real-time Execution • Multi-Model Orchestration • Live Terminal Streaming</p>
+</div>
+
+<div class="container">
+  <div class="panel">
+    <h2>🎯 Task Input</h2>
+    <div class="input-group">
+      <input type="text" id="taskInput" placeholder="Enter task for autonomous execution..." />
+      <button onclick="submitTask()">EXECUTE</button>
+    </div>
+
+    <div class="model-grid">
+      <div class="model-card" id="model-hermes">
+        <div class="name">Hermes</div>
+        <div class="status">● Standby</div>
+      </div>
+      <div class="model-card" id="model-gemini">
+        <div class="name">Gemini CLI</div>
+        <div class="status">● Standby</div>
+      </div>
+      <div class="model-card" id="model-kiro">
+        <div class="name">Kiro CLI</div>
+        <div class="status">● Standby</div>
+      </div>
+      <div class="model-card" id="model-aider">
+        <div class="name">Aider</div>
+        <div class="status">● Standby</div>
+      </div>
+      <div class="model-card" id="model-ollama">
+        <div class="name">Ollama</div>
+        <div class="status">● Standby</div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-label">Tasks Completed</div>
+        <div class="stat-value" id="tasksCompleted">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Active Models</div>
+        <div class="stat-value" id="activeModels">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Execution Time</div>
+        <div class="stat-value" id="execTime">0s</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Success Rate</div>
+        <div class="stat-value" id="successRate">100%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>💻 Live Terminal Output</h2>
+    <div class="terminal" id="terminal">
+      <div class="terminal-line system">[SYSTEM] Autonomous AI Agent Platform initialized</div>
+      <div class="terminal-line system">[SYSTEM] All models loaded and ready</div>
+      <div class="terminal-line info">[READY] Waiting for task input...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let taskCount = 0;
+let startTime = null;
+let timerInterval = null;
+
+function appendTerminal(message, type = 'output') {
+  const terminal = document.getElementById('terminal');
+  const line = document.createElement('div');
+  line.className = `terminal-line ${type}`;
+  line.textContent = message;
+  terminal.appendChild(line);
+  terminal.scrollTop = terminal.scrollHeight;
+}
+
+function updateModelStatus(modelId, active) {
+  const card = document.getElementById(`model-${modelId}`);
+  const status = card.querySelector('.status');
+  if (active) {
+    card.classList.add('active');
+    status.textContent = '● Running';
+  } else {
+    card.classList.remove('active');
+    status.textContent = '● Standby';
+  }
+}
+
+function updateStats() {
+  document.getElementById('tasksCompleted').textContent = taskCount;
+}
+
+function submitTask() {
+  const input = document.getElementById('taskInput');
+  const task = input.value.trim();
+  
+  if (!task) {
+    appendTerminal('[ERROR] No task provided', 'error');
+    return;
+  }
+
+  taskCount++;
+  startTime = Date.now();
+  updateStats();
+
+  appendTerminal(`[TASK] ${task}`, 'system');
+  appendTerminal('[EXEC] Starting autonomous execution...', 'info');
+
+  // Simulate multi-model orchestration
+  const models = ['hermes', 'gemini', 'kiro', 'aider', 'ollama'];
+  let activeCount = 0;
+
+  models.forEach((model, index) => {
+    setTimeout(() => {
+      updateModelStatus(model, true);
+      document.getElementById('activeModels').textContent = ++activeCount;
+      appendTerminal(`[${model.toUpperCase()}] Processing task component...`, 'info');
+    }, index * 500);
+  });
+
+  // Simulate completion
+  setTimeout(() => {
+    models.forEach(model => updateModelStatus(model, false));
+    document.getElementById('activeModels').textContent = '0';
+    
+    const execTime = ((Date.now() - startTime) / 1000).toFixed(2);
+    document.getElementById('execTime').textContent = `${execTime}s`;
+    
+    appendTerminal(`[SUCCESS] Task completed in ${execTime}s`, 'system');
+    appendTerminal('[RESULT] Output delivered to user', 'output');
+  }, 3000);
+
+  input.value = '';
+}
+
+// Auto-update timer
+setInterval(() => {
+  if (startTime) {
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    document.getElementById('execTime').textContent = `${elapsed}s`;
+  }
+}, 100);
+
+// Allow Enter key to submit
+document.getElementById('taskInput').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') submitTask();
+});
+</script>
+</body>
+</html>
