@@ -264,6 +264,7 @@ body {
 let taskCount = 0;
 let startTime = null;
 let timerInterval = null;
+let ws = null;
 
 function appendTerminal(message, type = 'output') {
   const terminal = document.getElementById('terminal');
@@ -290,7 +291,57 @@ function updateStats() {
   document.getElementById('tasksCompleted').textContent = taskCount;
 }
 
-function submitTask() {
+async function connectWebSocket() {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = "wss://ra557.tunnel.dnsexit.com/ws";
+  
+  try {
+    ws = new WebSocket(wsUrl);
+    
+    ws.onopen = () => {
+      appendTerminal('[SYSTEM] Connected to agent backend', 'system');
+      ws.send(JSON.stringify({type: 'subscribe'}));
+    };
+    
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      switch(data.type) {
+        case 'terminal_output':
+          appendTerminal(data.output, data.level);
+          break;
+        case 'model_update':
+          updateModelStatus(data.model, data.active);
+          break;
+        case 'task_update':
+          if (data.status === 'completed') {
+            taskCount++;
+            updateStats();
+            const execTime = ((Date.now() - startTime) / 1000).toFixed(2);
+            document.getElementById('execTime').textContent = `${execTime}s`;
+          }
+          break;
+        case 'stats_update':
+          document.getElementById('activeModels').textContent = data.active_models || 0;
+          break;
+      }
+    };
+    
+    ws.onerror = () => {
+      appendTerminal('[WARNING] WebSocket connection failed, using fallback mode', 'warning');
+    };
+    
+    ws.onclose = () => {
+      appendTerminal('[SYSTEM] WebSocket disconnected', 'system');
+      // Reconnect after 3 seconds
+      setTimeout(connectWebSocket, 3000);
+    };
+  } catch(e) {
+    appendTerminal('[ERROR] WebSocket not supported', 'error');
+  }
+}
+
+async function submitTask() {
   const input = document.getElementById('taskInput');
   const task = input.value.trim();
   
@@ -306,29 +357,37 @@ function submitTask() {
   appendTerminal(`[TASK] ${task}`, 'system');
   appendTerminal('[EXEC] Starting autonomous execution...', 'info');
 
-  // Simulate multi-model orchestration
-  const models = ['hermes', 'gemini', 'kiro', 'aider', 'ollama'];
-  let activeCount = 0;
+  // Try to send to backend
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      type: 'execute_task',
+      task: task,
+      task_id: `task_${Date.now()}`
+    }));
+  } else {
+    // Fallback: simulate execution
+    const models = ['hermes', 'gemini', 'kiro', 'aider', 'ollama'];
+    let activeCount = 0;
 
-  models.forEach((model, index) => {
+    models.forEach((model, index) => {
+      setTimeout(() => {
+        updateModelStatus(model, true);
+        document.getElementById('activeModels').textContent = ++activeCount;
+        appendTerminal(`[${model.toUpperCase()}] Processing task component...`, 'info');
+      }, index * 500);
+    });
+
     setTimeout(() => {
-      updateModelStatus(model, true);
-      document.getElementById('activeModels').textContent = ++activeCount;
-      appendTerminal(`[${model.toUpperCase()}] Processing task component...`, 'info');
-    }, index * 500);
-  });
-
-  // Simulate completion
-  setTimeout(() => {
-    models.forEach(model => updateModelStatus(model, false));
-    document.getElementById('activeModels').textContent = '0';
-    
-    const execTime = ((Date.now() - startTime) / 1000).toFixed(2);
-    document.getElementById('execTime').textContent = `${execTime}s`;
-    
-    appendTerminal(`[SUCCESS] Task completed in ${execTime}s`, 'system');
-    appendTerminal('[RESULT] Output delivered to user', 'output');
-  }, 3000);
+      models.forEach(model => updateModelStatus(model, false));
+      document.getElementById('activeModels').textContent = '0';
+      
+      const execTime = ((Date.now() - startTime) / 1000).toFixed(2);
+      document.getElementById('execTime').textContent = `${execTime}s`;
+      
+      appendTerminal(`[SUCCESS] Task completed in ${execTime}s`, 'system');
+      appendTerminal('[RESULT] Output delivered to user', 'output');
+    }, 3000);
+  }
 
   input.value = '';
 }
@@ -340,6 +399,9 @@ setInterval(() => {
     document.getElementById('execTime').textContent = `${elapsed}s`;
   }
 }, 100);
+
+// Connect WebSocket on load
+window.addEventListener('load', connectWebSocket);
 
 // Allow Enter key to submit
 document.getElementById('taskInput').addEventListener('keypress', (e) => {
