@@ -293,7 +293,7 @@ function updateStats() {
 
 async function connectWebSocket() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = "wss://ra557.tunnel.dnsexit.com/ws";
+  const wsUrl = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws";
   
   try {
     ws = new WebSocket(wsUrl);
