@@ -3,237 +3,436 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Autonomous AI Agent Platform</title>
+<title>Hermes Agent Dashboard</title>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #0a0a0f; color: #ffffff; font-family: 'Courier New', monospace; overflow-x: hidden; }
-.header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center; border-bottom: 3px solid #00ff88; }
-.header h1 { font-size: 2em; text-shadow: 0 0 10px #00ff88; }
-.header p { color: #00ff88; margin-top: 5px; }
-.container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px; max-width: 1600px; margin: 0 auto; }
-.panel { background: #1a1a2e; border: 1px solid #00ff88; border-radius: 5px; padding: 15px; box-shadow: 0 0 15px rgba(0, 255, 136, 0.2); }
-.panel h2 { color: #00ff88; margin-bottom: 10px; font-size: 1.2em; border-bottom: 1px solid #00ff88; padding-bottom: 5px; }
-.terminal { background: #000000; border: 1px solid #00ff88; border-radius: 3px; padding: 10px; height: 300px; overflow-y: auto; font-size: 12px; }
-.terminal-line { margin: 2px 0; white-space: pre-wrap; word-break: break-all; }
-.terminal-line.info { color: #00ff88; }
-.terminal-line.error { color: #ff4444; }
-.terminal-line.warning { color: #ffaa00; }
-.terminal-line.system { color: #00aaff; }
-.terminal-line.output { color: #ffffff; }
-.input-group { display: flex; gap: 10px; margin-top: 10px; }
-.input-group input { flex: 1; background: #000000; border: 1px solid #00ff88; color: #00ff88; padding: 8px; font-family: 'Courier New', monospace; font-size: 14px; }
-.input-group button { background: #00ff88; color: #000000; border: none; padding: 8px 20px; cursor: pointer; font-weight: bold; font-family: 'Courier New', monospace; }
-.input-group button:hover { background: #00cc66; }
-.model-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
-.model-card { background: #16213e; border: 1px solid #00ff88; border-radius: 3px; padding: 10px; text-align: center; }
-.model-card .name { color: #00ff88; font-weight: bold; margin-bottom: 5px; }
-.model-card .status { font-size: 11px; color: #ffaa00; }
-.model-card.active { border-color: #00ff88; box-shadow: 0 0 10px rgba(0, 255, 136, 0.5); }
-.model-card.active .status { color: #00ff88; }
-.stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
-.stat { background: #16213e; border-left: 3px solid #00ff88; padding: 8px; }
-.stat-label { font-size: 11px; color: #888; }
-.stat-value { font-size: 18px; color: #00ff88; font-weight: bold; }
-.tasks-list { max-height: 200px; overflow-y: auto; margin-top: 10px; }
-.task-item { background: #16213e; border-left: 3px solid #00ff88; padding: 8px; margin: 5px 0; font-size: 12px; }
-.task-item.completed { border-left-color: #00ff88; }
-.task-item.failed { border-left-color: #ff4444; }
-.task-item.running { border-left-color: #ffaa00; }
-@media (max-width: 768px) {
-  .container { grid-template-columns: 1fr; }
-}
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    color: #e4e4e4;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .header {
+    text-align: center;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .header h1 {
+    font-size: 2em;
+    background: linear-gradient(to right, #00dbde, #fc00ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 5px;
+  }
+  .header p { opacity: 0.7; font-size: 0.95em; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 15px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 18px;
+    backdrop-filter: blur(10px);
+  }
+  .card h3 {
+    font-size: 0.9em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    opacity: 0.8;
+  }
+  .status {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8em;
+    font-weight: bold;
+  }
+  .status.ok { background: #10b981; color: #fff; }
+  .status.warn { background: #f59e0b; color: #000; }
+  .status.err { background: #ef4444; color: #fff; }
+  .stat {
+    font-size: 1.8em;
+    font-weight: bold;
+    margin: 5px 0;
+  }
+  .label {
+    font-size: 0.75em;
+    opacity: 0.6;
+  }
+  .btn {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9em;
+    margin-top: 10px;
+    transition: transform 0.2s;
+  }
+  .btn:hover { transform: scale(1.05); }
+  .terminal {
+    grid-column: 1 / -1;
+    background: #0a0a0a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 15px;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85em;
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .terminal .prompt { color: #10b981; }
+  .terminal .error { color: #ef4444; }
+  .terminal .info { color: #3b82f6; }
+  .input-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .input-row input {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.3);
+    color: white;
+    font-family: inherit;
+  }
+  .input-row button {
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .patterns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .pattern-tag {
+    background: rgba(99,102,241,0.2);
+    border: 1px solid rgba(99,102,241,0.4);
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.7em;
+  }
 </style>
 </head>
 <body>
-<div class="header">
-  <h1>🤖 AUTONOMOUS AI AGENT PLATFORM</h1>
-  <p>Real-time Execution • Multi-Model Orchestration • Live Terminal Streaming</p>
-</div>
-<div class="container">
-  <div class="panel">
-    <h2>🎯 Task Input</h2>
-    <div class="input-group">
-      <input type="text" id="taskInput" placeholder="Enter task for autonomous execution..." />
-      <button onclick="submitTask()">EXECUTE</button>
+  <div class="header">
+    <h1>HERMES AGENT</h1>
+    <p>Autonomous AI Platform — v5.0.0 | Live Terminal Stream</p>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Backend Status</h3>
+      <div class="stat" id="health">—</div>
+      <div class="label">Service health</div>
+      <div class="patterns" id="patterns"></div>
     </div>
-    <div class="model-grid">
-      <div class="model-card" id="model-hermes">
-        <div class="name">Hermes</div>
-        <div class="status">● Standby</div>
-      </div>
-      <div class="model-card" id="model-gemini">
-        <div class="name">Gemini CLI</div>
-        <div class="status">● Standby</div>
-      </div>
-      <div class="model-card" id="model-kiro">
-        <div class="name">Kiro CLI</div>
-        <div class="status">● Standby</div>
-      </div>
-      <div class="model-card" id="model-aider">
-        <div class="name">Aider</div>
-        <div class="status">● Standby</div>
-      </div>
-      <div class="model-card" id="model-ollama">
-        <div class="name">Ollama</div>
-        <div class="status">● Standby</div>
-      </div>
+
+    <div class="card">
+      <h3>Skills Loaded</h3>
+      <div class="stat" id="skills">—</div>
+      <div class="label">Registered skills</div>
     </div>
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-label">Tasks Completed</div>
-        <div class="stat-value" id="tasksCompleted">0</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Active Models</div>
-        <div class="stat-value" id="activeModels">0</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Execution Time</div>
-        <div class="stat-value" id="execTime">0s</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Success Rate</div>
-        <div class="stat-value" id="successRate">100%</div>
+
+    <div class="card">
+      <h3>Tasks</h3>
+      <div class="stat" id="tasks">0</div>
+      <div class="label">Total executed</div>
+      <button class="btn" onclick="loadTasks()">Refresh Tasks</button>
+    </div>
+
+    <div class="card">
+      <h3>Browser Automation</h3>
+      <div id="browser-status"><span class="status warn">IDLE</span></div>
+      <div class="label" id="browser-info">No active session</div>
+      <button class="btn" onclick="runBrowserTask()">Test Browser</button>
+    </div>
+
+    <div class="card">
+      <h3>Desktop Control</h3>
+      <div id="desktop-status"><span class="status warn">IDLE</span></div>
+      <div class="label" id="desktop-info">No active session</div>
+      <button class="btn" onclick="runDesktopTask()">Test Desktop</button>
+    </div>
+
+    <div class="card">
+      <h3>Telegram Relay</h3>
+      <div id="telegram-status"><span class="status warn">INACTIVE</span></div>
+      <div class="label" id="telegram-info">Queue: ready</div>
+      <button class="btn" onclick="loadTelegramStatus()">Check Status</button>
+    </div>
+
+    <div class="card">
+      <h3>WebSocket</h3>
+      <div id="ws-status"><span class="status warn">CONNECTING</span></div>
+      <div class="label">Live terminal stream</div>
+    </div>
+
+    <div class="card">
+      <h3>Hook Dispatch</h3>
+      <div id="hook-status"><span class="status ok">READY</span></div>
+      <div class="label">POST /api/hooks</div>
+      <button class="btn" onclick="runHookTest()">Test Hook</button>
+    </div>
+
+    <div class="terminal">
+      <div class="info">=== LIVE TERMINAL OUTPUT ===</div>
+      <div id="terminal-output">Connecting...</div>
+    </div>
+
+    <div class="card" style="grid-column: 1 / -1;">
+      <h3>Submit Task</h3>
+      <div class="input-row">
+        <input type="text" id="task-input" placeholder="Enter task: e.g. 'Analyze top AI repos and update patterns'" onkeypress="if(event.key==='Enter') submitTask()">
+        <button onclick="submitTask()">Execute</button>
       </div>
     </div>
   </div>
-  <div class="panel">
-    <h2>💻 Live Terminal Output</h2>
-    <div class="terminal" id="terminal">
-      <div class="terminal-line system">[SYSTEM] Autonomous AI Agent Platform v4 initialized</div>
-      <div class="terminal-line system">[SYSTEM] Patterns: ReAct, StateGraph, AgentTool, Self-Eval, Retry, PersistentQueue, SkillLoader, HookDispatch</div>
-      <div class="terminal-line info">[READY] Waiting for task input...</div>
-    </div>
-  </div>
-</div>
-<div class="container" style="margin-top: 20px;">
-  <div class="panel">
-    <h2>📋 Task Queue</h2>
-    <div class="tasks-list" id="tasksList">
-      <div class="task-item">No tasks yet</div>
-    </div>
-  </div>
-  <div class="panel">
-    <h2>🔗 Hook Status</h2>
-    <div class="terminal" id="hookTerminal">
-      <div class="terminal-line system">[HOOK] POST /hooks with Bearer token</div>
-      <div class="terminal-line system">[HOOK] Ready for webhook dispatch</div>
-    </div>
-  </div>
-</div>
+
 <script>
-let taskCount = 0;
-let startTime = null;
-let ws = null;
+const WS_URL = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
+const BASE = location.origin;
+let ws;
+let termLines = [];
 
-function appendTerminal(message, type = 'output') {
-  const terminal = document.getElementById('terminal');
-  const line = document.createElement('div');
-  line.className = `terminal-line ${type}`;
-  line.textContent = message;
-  terminal.appendChild(line);
-  terminal.scrollTop = terminal.scrollHeight;
-}
+function $(id) { return document.getElementById(id); }
 
-function updateModelStatus(modelId, active) {
-  const card = document.getElementById(`model-${modelId}`);
-  const status = card.querySelector('.status');
-  if (active) {
-    card.classList.add('active');
-    status.textContent = '● Running';
+function setStatus(id, state, text) {
+  const el = $(id);
+  if (!el) return;
+  if (typeof state === 'string') {
+    el.innerHTML = state;
   } else {
-    card.classList.remove('active');
-    status.textContent = '● Standby';
+    const cls = state ? 'ok' : 'err';
+    el.innerHTML = `<span class="status ${cls}">${text || (state ? 'ON' : 'OFF')}</span>`;
   }
 }
 
-function updateTaskList(tasks) {
-  const list = document.getElementById('tasksList');
-  list.innerHTML = '';
-  tasks.forEach(task => {
-    const item = document.createElement('div');
-    item.className = `task-item ${task.status}`;
-    item.textContent = `[${task.task_id}] ${task.status} | score: ${task.score} | model: ${task.model} | steps: ${task.steps}`;
-    list.appendChild(item);
+function appendTerm(text, cls='') {
+  const out = $('terminal-output');
+  if (!out) return;
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = text;
+  out.appendChild(line);
+  out.scrollTop = out.scrollHeight;
+  termLines.push(line);
+  if (termLines.length > 200) {
+    termLines.shift().remove();
+  }
+}
+
+async function api(path, opts={}) {
+  const res = await fetch(BASE + path, {
+    headers: {'Content-Type': 'application/json'},
+    ...opts
   });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+async function loadHealth() {
+  try {
+    const h = await api('/api/health');
+    $('health').textContent = h.status.toUpperCase();
+    $('health').style.color = h.status === 'healthy' ? '#10b981' : '#ef4444';
+    $('skills').textContent = h.skills_loaded;
+    $('tasks').textContent = h.tasks || 0;
+    const pat = $('patterns');
+    pat.innerHTML = '';
+    (h.patterns || []).forEach(p => {
+      const tag = document.createElement('span');
+      tag.className = 'pattern-tag';
+      tag.textContent = p;
+      pat.appendChild(tag);
+    });
+    return h;
+  } catch (e) {
+    $('health').textContent = 'OFFLINE';
+    $('health').style.color = '#ef4444';
+  }
 }
 
 async function loadTasks() {
   try {
-    const res = await fetch('/api/tasks');
-    const data = await res.json();
-    updateTaskList(data.tasks || []);
-    taskCount = (data.tasks || []).length;
-    document.getElementById('tasksCompleted').textContent = taskCount;
+    const data = await api('/api/tasks');
+    $('tasks').textContent = (data.tasks || []).length;
   } catch (e) {
-    console.error('Failed to load tasks', e);
+    appendTerm('[ERROR] Failed to load tasks: ' + e.message, 'error');
   }
 }
 
-async function connectWebSocket() {
-  const wsUrl = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws";
+async function runBrowserTask() {
   try {
-    ws = new WebSocket(wsUrl);
-    ws.onopen = () => {
-      appendTerminal('[SYSTEM] Connected to agent backend', 'system');
-    };
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      switch(data.type) {
-        case 'terminal_output':
-          appendTerminal(data.output, data.level);
-          break;
-        case 'model_update':
-          updateModelStatus(data.model, data.active);
-          break;
-        case 'task_update':
-          if (data.status === 'completed' || data.status === 'failed') {
-            loadTasks();
-          }
-          break;
-      }
-    };
-    ws.onclose = () => {
-      appendTerminal('[SYSTEM] WebSocket disconnected, reconnecting...', 'system');
-      setTimeout(connectWebSocket, 3000);
-    };
-  } catch(e) {
-    appendTerminal('[ERROR] WebSocket not supported', 'error');
+    setStatus('browser-status', true, 'RUNNING');
+    $('browser-info').textContent = 'Executing...';
+    const res = await api('/api/browser/task', {
+      method: 'POST',
+      body: JSON.stringify({task: 'Dashboard test: verify browser automation endpoint'})
+    });
+    appendTerm('[BROWSER] Task submitted: ' + res.task_id);
+    pollTask(res.task_id, 'browser');
+  } catch (e) {
+    setStatus('browser-status', false, 'ERROR');
+    $('browser-info').textContent = e.message;
   }
+}
+
+async function runDesktopTask() {
+  try {
+    setStatus('desktop-status', true, 'RUNNING');
+    $('desktop-info').textContent = 'Capturing...';
+    const res = await api('/api/desktop/action', {
+      method: 'POST',
+      body: JSON.stringify({action: 'capture', target: 'verify'})
+    });
+    appendTerm('[DESKTOP] Task submitted: ' + res.task_id);
+    pollTask(res.task_id, 'desktop');
+  } catch (e) {
+    setStatus('desktop-status', false, 'ERROR');
+    $('desktop-info').textContent = e.message;
+  }
+}
+
+async function runHookTest() {
+  try {
+    const res = await api('/api/hooks', {
+      method: 'POST',
+      body: JSON.stringify({source: 'dashboard', payload: {test: true}})
+    });
+    setStatus('hook-status', true, 'ACCEPTED');
+    appendTerm('[HOOK] Accepted: ' + res.task_id);
+  } catch (e) {
+    setStatus('hook-status', false, 'ERROR');
+    appendTerm('[HOOK] Failed: ' + e.message, 'error');
+  }
+}
+
+async function loadTelegramStatus() {
+  try {
+    const tg = await api('/api/telegram/status');
+    const running = tg.bot_running;
+    setStatus('telegram-status', running, running ? 'ACTIVE' : 'INACTIVE');
+    $('telegram-info').textContent = running ? 'Bot online' : 'Queue ready (needs token)';
+  } catch (e) {
+    setStatus('telegram-status', false, 'ERROR');
+  }
+}
+
+async function pollTask(taskId, kind) {
+  const start = Date.now();
+  const interval = setInterval(async () => {
+    try {
+      const data = await api('/api/tasks');
+      const task = (data.tasks || []).find(t => t.task_id === taskId);
+      if (!task) return;
+      if (task.status === 'completed') {
+        clearInterval(interval);
+        const score = (task.score || 0).toFixed(2);
+        if (kind === 'browser') {
+          setStatus('browser-status', true, 'DONE');
+          $('browser-info').textContent = 'Score: ' + score + ' | Steps: ' + (task.steps || 0);
+        } else if (kind === 'desktop') {
+          setStatus('desktop-status', true, 'DONE');
+          $('desktop-info').textContent = 'Score: ' + score + ' | Steps: ' + (task.steps || 0);
+        }
+        appendTerm(`[${kind.toUpperCase()}] Completed: ${taskId} score=${score}`);
+      } else if (Date.now() - start > 30000) {
+        clearInterval(interval);
+        if (kind === 'browser') {
+          setStatus('browser-status', false, 'TIMEOUT');
+        } else if (kind === 'desktop') {
+          setStatus('desktop-status', false, 'TIMEOUT');
+        }
+      }
+    } catch (e) {
+      // ignore transient fetch errors during poll
+    }
+  }, 1500);
 }
 
 async function submitTask() {
-  const input = document.getElementById('taskInput');
-  const task = input.value.trim();
-  if (!task) {
-    appendTerminal('[ERROR] No task provided', 'error');
-    return;
-  }
-  appendTerminal(`[TASK] ${task}`, 'system');
-  appendTerminal('[EXEC] Starting autonomous execution...', 'info');
+  const input = $('task-input');
+  const text = input.value.trim();
+  if (!text) return;
   try {
-    const res = await fetch('/api/task', {
+    appendTerm('[TASK] Submitting: ' + text, 'info');
+    const res = await api('/api/task', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({task, model: 'hermes'})
+      body: JSON.stringify({task: text})
     });
-    const data = await res.json();
-    appendTerminal(`[TASK_ID] ${data.task_id}`, 'system');
-    loadTasks();
+    appendTerm('[TASK] Submitted: ' + res.task_id + ' status=' + res.status, 'info');
+    input.value = '';
   } catch (e) {
-    appendTerminal('[ERROR] Failed to submit task', 'error');
+    appendTerm('[TASK] Failed: ' + e.message, 'error');
   }
-  input.value = '';
 }
 
-window.addEventListener('load', () => {
-  connectWebSocket();
+function connectWS() {
+  try {
+    ws = new WebSocket(WS_URL);
+    ws.onopen = () => {
+      setStatus('ws-status', true, 'LIVE');
+      appendTerm('[WS] Connected', 'info');
+    };
+    ws.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        const type = msg.type || 'msg';
+        const payload = msg.payload || msg.data || msg;
+        if (type === 'terminal_output') {
+          appendTerm(payload.text || JSON.stringify(payload));
+          if (payload.error) appendTerm('[ERR] ' + payload.error, 'error');
+        } else if (type === 'task_update') {
+          appendTerm('[TASK] ' + JSON.stringify(payload), 'info');
+        } else if (type === 'model_update') {
+          appendTerm('[MODEL] ' + JSON.stringify(payload));
+        } else {
+          appendTerm('[' + type.toUpperCase() + '] ' + JSON.stringify(payload));
+        }
+      } catch (e) {
+        appendTerm('[WS] ' + ev.data);
+      }
+    };
+    ws.onerror = () => {
+      setStatus('ws-status', false, 'ERROR');
+      appendTerm('[WS] Error', 'error');
+    };
+    ws.onclose = () => {
+      setStatus('ws-status', false, 'CLOSED');
+      appendTerm('[WS] Closed, reconnecting...', 'error');
+      setTimeout(connectWS, 3000);
+    };
+  } catch (e) {
+    setStatus('ws-status', false, 'ERROR');
+  }
+}
+
+(function init() {
+  loadHealth();
   loadTasks();
-});
-document.getElementById('taskInput').addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') submitTask();
-});
-setInterval(loadTasks, 5000);
+  loadTelegramStatus();
+  connectWS();
+  setInterval(loadHealth, 5000);
+  setInterval(loadTasks, 10000);
+})();
 </script>
 </body>
 </html>
