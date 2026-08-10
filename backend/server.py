@@ -268,6 +268,42 @@ async def browser_task(request: Request):
     asyncio.create_task(run_browser_task(task_id, task_text))
     return JSONResponse({"task_id": task_id, "status": "executing", "mode": "browser"})
 
+# ─── AUTO-GPT BLOCK EXECUTION ─────────────────────────────
+BLOCK_REGISTRY = {
+    "bash": lambda args: f"bash -c {args.get('command','')}",
+    "python": lambda args: f"python3 {args.get('file','')} {args.get('script','')}",
+    "search": lambda args: f"search: {args.get('query','')}",
+    "write": lambda args: f"write: {args.get('path','')}",
+    "read": lambda args: f"read: {args.get('path','')}",
+}
+
+@app.get("/api/blocks")
+async def list_blocks():
+    return JSONResponse({"blocks": list(BLOCK_REGISTRY.keys())})
+
+@app.post("/api/blocks/run")
+async def run_block(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    block_type = body.get("type") or body.get("block") or "bash"
+    args = body.get("args", {})
+    if block_type not in BLOCK_REGISTRY:
+        raise HTTPException(status_code=400, detail=f"Unknown block type: {block_type}")
+    block_id = f"block_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+    now = datetime.now(timezone.utc).isoformat()
+    result = BLOCK_REGISTRY[block_type](args)
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT INTO tasks (task_id, task_text, status, model, created_at, updated_at) VALUES (?, ?, 'completed', ?, ?, ?)",
+        (block_id, f"block:{block_type}:{result}", "autogpt-block", now, now)
+    )
+    conn.commit()
+    conn.close()
+    await broadcast({"type": "terminal_output", "task_id": block_id, "line": f"[{block_id[:12]}] block {block_type} => {result}"})
+    return JSONResponse({"block_id": block_id, "type": block_type, "result": result})
+
 # ─── DESKTOP AUTOMATION (computer-use pattern) ────────────
 @app.post("/api/desktop/action")
 async def desktop_action(request: Request):
