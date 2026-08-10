@@ -293,6 +293,22 @@
     </div>
 
     <div class="card">
+      <h3>Patterns Catalog</h3>
+      <div class="label" id="version-info">Backend v5.5.0 — 34 capabilities</div>
+      <div class="label" id="patterns-info">GET /api/patterns</div>
+      <button class="btn" onclick="loadPatterns()">Load All Capabilities</button>
+      <pre id="patterns-output" style="background:#000;color:#0f0;padding:8px;margin-top:6px;font-size:11px;max-height:200px;overflow:auto"></pre>
+    </div>
+
+    <div class="card">
+      <h3>Skills</h3>
+      <div class="label">Dynamic skill loader</div>
+      <div class="label" id="skills-info">GET /api/skills</div>
+      <button class="btn" onclick="loadSkills()">Load Skills</button>
+      <pre id="skills-output" style="background:#000;color:#0f0;padding:8px;margin-top:6px;font-size:11px;max-height:200px;overflow:auto"></pre>
+    </div>
+
+    <div class="card">
       <h3>Camel RolePlay</h3>
       <div class="label">Role-based multi-agent conversation</div>
       <div class="label" id="camel-info">POST /api/camel/roleplay</div>
@@ -629,6 +645,19 @@ async function runAutoGenConversation() {
   } catch (e) {
     $('autogen-info').textContent = 'error: ' + e.message;
     appendTerm('[AUTOGEN] failed: ' + e.message, 'error');
+  }
+}
+
+async function loadPatterns() {
+  try {
+    const res = await api('/api/patterns');
+    $('version-info').textContent = 'Backend v' + res.version + ' — ' + res.total_capabilities + ' capabilities';
+    const lines = res.capabilities.map(c => '[' + c.method + '] ' + c.name + ' -> ' + c.endpoint);
+    $('patterns-output').textContent = lines.join('\n');
+    appendTerm('[PATTERNS] loaded ' + res.total_capabilities + ' capabilities', 'info');
+  } catch (e) {
+    $('patterns-info').textContent = 'error: ' + e.message;
+    appendTerm('[PATTERNS] failed: ' + e.message, 'error');
   }
 }
 
