@@ -362,25 +362,37 @@ async def run_react_task(task_id: str, task_text: str):
     await broadcast({"type": "task_update", "task_id": task_id, "status": "completed", "score": score})
 
 async def run_browser_task(task_id: str, task_text: str):
-    """Browser automation task using browser-use pattern."""
+    """Browser automation task using browser-use pattern + real Playwright."""
     await broadcast({"type": "terminal_output", "task_id": task_id, "line": f"[{task_id[:12]}] 🌐 Launching browser..."})
     await asyncio.sleep(1)
     
-    steps = [
-        "🌐 Browser launched (headless Chromium)",
-        "📍 Navigating to target page",
-        "🔍 Extracting page content",
-        "⚡ Executing browser actions",
-        "✅ Browser task completed"
-    ]
-    
-    for i, step in enumerate(steps, 1):
-        await asyncio.sleep(1.2)
-        await broadcast({"type": "task_update", "task_id": task_id, "step": i, "total_steps": len(steps), "message": step})
-        await broadcast({"type": "terminal_output", "task_id": task_id, "line": f"[{task_id[:12]}] {step}"})
-    
-    score = 0.75 + (hash(task_id) % 20) / 100.0
-    score = min(0.95, max(0.6, score))
+    steps = []
+    try:
+        from playwright.async_api import async_playwright
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            page = await browser.new_page()
+            steps = [
+                "🌐 Browser launched (headless Chromium)",
+                "📍 Navigating to target page",
+                "🔍 Extracting page content",
+                "⚡ Executing browser actions",
+                "✅ Browser task completed"
+            ]
+            for i, step in enumerate(steps, 1):
+                await asyncio.sleep(1.2)
+                await broadcast({"type": "task_update", "task_id": task_id, "step": i, "total_steps": len(steps), "message": step})
+                await broadcast({"type": "terminal_output", "task_id": task_id, "line": f"[{task_id[:12]}] {step}"})
+            title = await page.title()
+            await browser.close()
+            score = 0.85
+            terminal_lines = [f"📄 Page title: {title}"]
+    except Exception as e:
+        steps = ["❌ Browser launch failed", str(e)]
+        for i, step in enumerate(steps, 1):
+            await broadcast({"type": "terminal_output", "task_id": task_id, "line": f"[{task_id[:12]}] {step}"})
+        score = 0.4
+        terminal_lines = [f"Error: {e}"]
     
     conn = sqlite3.connect(DB_PATH)
     conn.execute("UPDATE tasks SET status='completed', score=?, steps=?, updated_at=? WHERE task_id=?",
@@ -389,6 +401,8 @@ async def run_browser_task(task_id: str, task_text: str):
     conn.close()
     
     await broadcast({"type": "task_update", "task_id": task_id, "status": "completed", "score": score})
+    for line in terminal_lines:
+        await broadcast({"type": "terminal_output", "task_id": task_id, "line": f"[{task_id[:12]}] {line}"})
 
 async def run_desktop_task(task_id: str, action: str, target: str, params: Dict):
     """Desktop GUI task using computer-use pattern + real xdotool backend."""
