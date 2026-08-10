@@ -282,6 +282,17 @@
     </div>
 
     <div class="card">
+      <h3>AutoGen Conversation</h3>
+      <div class="label">Multi-agent conversation pattern</div>
+      <div class="label" id="autogen-info">POST /api/autogen/conversation</div>
+      <div class="input-row">
+        <input type="text" id="autogen-task" placeholder="Task" value="Build a trading bot">
+        <input type="text" id="autogen-agents" placeholder="Agents: Planner,Coder,Tester" value="Planner,Coder,Tester">
+      </div>
+      <button class="btn" onclick="runAutoGenConversation()">Start Conversation</button>
+    </div>
+
+    <div class="card">
       <h3>Camel RolePlay</h3>
       <div class="label">Role-based multi-agent conversation</div>
       <div class="label" id="camel-info">POST /api/camel/roleplay</div>
@@ -605,6 +616,19 @@ async function runCamelRolePlay() {
   } catch (e) {
     $('camel-info').textContent = 'error: ' + e.message;
     appendTerm('[CAMEL] failed: ' + e.message, 'error');
+  }
+}
+
+async function runAutoGenConversation() {
+  try {
+    const task_prompt = $('autogen-task').value || 'Collaborative task';
+    const agents = ($('autogen-agents').value || '').split(',').map(s => s.trim()).filter(Boolean);
+    const res = await api('/api/autogen/conversation', {method:'POST', body: JSON.stringify({task_prompt, agents})});
+    $('autogen-info').textContent = 'task_id=' + res.task_id;
+    appendTerm('[AUTOGEN] ' + res.task_prompt + ' agents=' + res.agents.join(','), 'info');
+  } catch (e) {
+    $('autogen-info').textContent = 'error: ' + e.message;
+    appendTerm('[AUTOGEN] failed: ' + e.message, 'error');
   }
 }
 
