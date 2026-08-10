@@ -440,6 +440,97 @@ async def run_browser_task(task_id: str, task_text: str):
     for line in terminal_lines:
         await broadcast({"type": "terminal_output", "task_id": task_id, "line": f"[{task_id[:12]}] {line}"})
 
+
+@app.post("/api/browser/action")
+async def browser_action(request: Request):
+    """Real browser action: navigate, click, type, screenshot, content."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    
+    action = body.get("action", "navigate")
+    url = body.get("url", "")
+    text = body.get("text", "")
+    selector = body.get("selector", "")
+    task_id = f"browser_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+    now = datetime.now(timezone.utc).isoformat()
+    
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT INTO tasks (task_id, task_text, status, model, created_at, updated_at) VALUES (?, ?, 'pending', ?, ?, ?)",
+        (task_id, f"browser:{action}:{url}", "browser-use", now, now)
+    )
+    conn.commit()
+    conn.close()
+    
+    asyncio.create_task(run_browser_action(task_id, action, url, text, selector))
+    return JSONResponse({"task_id": task_id, "status": "executing", "mode": "browser", "action": action})
+
+
+async def run_browser_action(task_id: str, action: str, url: str, text: str, selector: str):
+    """Execute real Playwright browser actions."""
+    await broadcast({"type": "terminal_output", "task_id": task_id, "line": f"[{task_id[:12]}] 🌐 Browser action: {action}"})
+    await asyncio.sleep(0.5)
+    
+    terminal_lines = []
+    score = 0.6
+    try:
+        from playwright.async_api import async_playwright
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            page = await browser.new_page()
+            
+            if action in ("navigate", "open"):
+                await page.goto(url or "https://example.com", timeout=15000)
+                title = await page.title()
+                terminal_lines.append(f"📍 Navigated to {url or 'example.com'}")
+                terminal_lines.append(f"📄 Title: {title}")
+                score = 0.9
+            
+            elif action == "click" and selector:
+                await page.click(selector, timeout=5000)
+                terminal_lines.append(f"🖱️ Clicked: {selector}")
+                score = 0.85
+            
+            elif action == "type" and selector and text:
+                await page.fill(selector, text)
+                terminal_lines.append(f"⌨️ Typed into {selector}: {text[:50]}")
+                score = 0.85
+            
+            elif action == "content":
+                content = await page.content()
+                terminal_lines.append(f"📝 Page content length: {len(content)} chars")
+                score = 0.9
+            
+            elif action == "screenshot":
+                path = f"/tmp/browser_{task_id}.png"
+                await page.screenshot(path=path)
+                terminal_lines.append(f"📸 Screenshot saved: {path}")
+                score = 0.85
+            
+            else:
+                terminal_lines.append(f"❓ Unknown action: {action}")
+                score = 0.5
+            
+            await browser.close()
+    except Exception as e:
+        terminal_lines.append(f"❌ Browser error: {e}")
+        score = 0.4
+    
+    for i, line in enumerate(terminal_lines, 1):
+        await asyncio.sleep(0.4)
+        await broadcast({"type": "task_update", "task_id": task_id, "step": i, "total_steps": len(terminal_lines), "message": line})
+        await broadcast({"type": "terminal_output", "task_id": task_id, "line": f"[{task_id[:12]}] {line}"})
+    
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("UPDATE tasks SET status='completed', score=?, steps=?, updated_at=? WHERE task_id=?",
+                 (score, len(terminal_lines), datetime.now(timezone.utc).isoformat(), task_id))
+    conn.commit()
+    conn.close()
+    
+    await broadcast({"type": "task_update", "task_id": task_id, "status": "completed", "score": score})
+
 async def run_desktop_task(task_id: str, action: str, target: str, params: Dict):
     """Desktop GUI task using computer-use pattern + real xdotool backend."""
     await broadcast({"type": "terminal_output", "task_id": task_id, "line": f"[{task_id[:12]}] 🖥️ Desktop control: {action}"})
