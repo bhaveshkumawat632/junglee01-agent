@@ -13,11 +13,7 @@
     min-height: 100vh;
     padding: 20px;
   }
-  .header {
-    text-align: center;
-    padding: 20px;
-    margin-bottom: 20px;
-  }
+  .header { text-align: center; padding: 20px; margin-bottom: 20px; }
   .header h1 {
     font-size: 2em;
     background: linear-gradient(to right, #00dbde, #fc00ff);
@@ -62,10 +58,7 @@
     font-weight: bold;
     margin: 5px 0;
   }
-  .label {
-    font-size: 0.75em;
-    opacity: 0.6;
-  }
+  .label { font-size: 0.75em; opacity: 0.6; }
   .btn {
     background: linear-gradient(135deg, #667eea, #764ba2);
     color: white;
@@ -98,9 +91,9 @@
     display: flex;
     gap: 8px;
     margin-top: 10px;
+    align-items: center;
   }
-  .input-row input {
-    flex: 1;
+  .input-row input, .input-row select {
     padding: 10px;
     border-radius: 8px;
     border: 1px solid rgba(255,255,255,0.2);
@@ -108,6 +101,8 @@
     color: white;
     font-family: inherit;
   }
+  .input-row input { flex: 1; }
+  .input-row select { width: 160px; }
   .input-row button {
     background: linear-gradient(135deg, #f093fb, #f5576c);
     color: white;
@@ -134,7 +129,7 @@
 <body>
   <div class="header">
     <h1>HERMES AGENT</h1>
-    <p>Autonomous AI Platform — v5.0.0 | Live Terminal Stream</p>
+    <p>Autonomous AI Platform — v5.2 | Live Terminal Stream</p>
   </div>
 
   <div class="grid">
@@ -188,7 +183,7 @@
     <div class="card">
       <h3>Hook Dispatch</h3>
       <div id="hook-status"><span class="status ok">READY</span></div>
-      <div class="label">POST /api/hooks</div>
+      <div class="label">POST /hooks</div>
       <button class="btn" onclick="runHookTest()">Test Hook</button>
     </div>
 
@@ -201,6 +196,11 @@
       <h3>Submit Task</h3>
       <div class="input-row">
         <input type="text" id="task-input" placeholder="Enter task: e.g. 'Analyze top AI repos and update patterns'" onkeypress="if(event.key==='Enter') submitTask()">
+        <select id="task-mode">
+          <option value="react">ReAct</option>
+          <option value="plan">Plan</option>
+          <option value="multi">Multi-Agent</option>
+        </select>
         <button onclick="submitTask()">Execute</button>
       </div>
     </div>
@@ -234,9 +234,7 @@ function appendTerm(text, cls='') {
   out.appendChild(line);
   out.scrollTop = out.scrollHeight;
   termLines.push(line);
-  if (termLines.length > 200) {
-    termLines.shift().remove();
-  }
+  if (termLines.length > 200) termLines.shift().remove();
 }
 
 async function api(path, opts={}) {
@@ -356,29 +354,25 @@ async function pollTask(taskId, kind) {
         appendTerm(`[${kind.toUpperCase()}] Completed: ${taskId} score=${score}`);
       } else if (Date.now() - start > 30000) {
         clearInterval(interval);
-        if (kind === 'browser') {
-          setStatus('browser-status', false, 'TIMEOUT');
-        } else if (kind === 'desktop') {
-          setStatus('desktop-status', false, 'TIMEOUT');
-        }
+        if (kind === 'browser') setStatus('browser-status', false, 'TIMEOUT');
+        else if (kind === 'desktop') setStatus('desktop-status', false, 'TIMEOUT');
       }
-    } catch (e) {
-      // ignore transient fetch errors during poll
-    }
+    } catch (e) { /* ignore transient fetch errors during poll */ }
   }, 1500);
 }
 
 async function submitTask() {
   const input = $('task-input');
+  const mode = $('task-mode').value;
   const text = input.value.trim();
   if (!text) return;
   try {
-    appendTerm('[TASK] Submitting: ' + text, 'info');
+    appendTerm('[TASK] Submitting: ' + text + ' mode=' + mode, 'info');
     const res = await api('/api/task', {
       method: 'POST',
-      body: JSON.stringify({task: text})
+      body: JSON.stringify({task: text, mode: mode})
     });
-    appendTerm('[TASK] Submitted: ' + res.task_id + ' status=' + res.status, 'info');
+    appendTerm('[TASK] Submitted: ' + res.task_id + ' status=' + res.status + ' mode=' + (res.mode || mode), 'info');
     input.value = '';
   } catch (e) {
     appendTerm('[TASK] Failed: ' + e.message, 'error');
@@ -396,16 +390,16 @@ function connectWS() {
       try {
         const msg = JSON.parse(ev.data);
         const type = msg.type || 'msg';
-        const payload = msg.payload || msg.data || msg;
         if (type === 'terminal_output') {
-          appendTerm(payload.text || JSON.stringify(payload));
-          if (payload.error) appendTerm('[ERR] ' + payload.error, 'error');
+          appendTerm(msg.line || JSON.stringify(msg));
         } else if (type === 'task_update') {
-          appendTerm('[TASK] ' + JSON.stringify(payload), 'info');
+          appendTerm('[TASK] ' + (msg.message || JSON.stringify(msg)), 'info');
         } else if (type === 'model_update') {
-          appendTerm('[MODEL] ' + JSON.stringify(payload));
+          appendTerm('[MODEL] ' + JSON.stringify(msg));
+        } else if (type === 'pong') {
+          // ignore
         } else {
-          appendTerm('[' + type.toUpperCase() + '] ' + JSON.stringify(payload));
+          appendTerm('[' + type.toUpperCase() + '] ' + JSON.stringify(msg));
         }
       } catch (e) {
         appendTerm('[WS] ' + ev.data);
