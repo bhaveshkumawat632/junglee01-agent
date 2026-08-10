@@ -748,15 +748,20 @@ function connectWS() {
     };
     ws.onerror = () => {
       setStatus('ws-status', false, 'ERROR');
-      appendTerm('[WS] Error', 'error');
+      appendTerm('[WS] Error, switching to SSE', 'error');
+      ws = null;
+      probeSSE();
     };
     ws.onclose = () => {
       setStatus('ws-status', false, 'CLOSED');
-      appendTerm('[WS] Closed, reconnecting...', 'error');
-      setTimeout(connectWS, 3000);
+      appendTerm('[WS] Closed, switching to SSE', 'warn');
+      ws = null;
+      probeSSE();
     };
   } catch (e) {
     setStatus('ws-status', false, 'ERROR');
+    appendTerm('[WS] Failed: ' + e.message + ', switching to SSE', 'error');
+    probeSSE();
   }
 }
 
