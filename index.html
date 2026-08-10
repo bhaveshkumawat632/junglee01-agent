@@ -249,6 +249,23 @@
     </div>
 
     <div class="card">
+      <h3>Foundation Patterns</h3>
+      <div class="label">100-repo extracted patterns</div>
+      <div class="label" id="foundation-info">GET /api/foundation/patterns</div>
+      <div class="input-row">
+        <select id="foundation-pattern">
+          <option value="tool_use">tool_use</option>
+          <option value="agent_inference">agent_inference</option>
+          <option value="multi_modal">multi_modal</option>
+          <option value="openai_compat">openai_compat</option>
+          <option value="model_export">model_export</option>
+        </select>
+        <input type="text" id="foundation-params" placeholder="params JSON">
+      </div>
+      <button class="btn" onclick="applyFoundation()">Apply Pattern</button>
+    </div>
+
+    <div class="card">
       <h3>AutoGPT Blocks</h3>
       <div class="label">Composable block execution</div>
       <div class="label" id="block-info">POST /api/blocks/run</div>
@@ -520,6 +537,21 @@ async function runBrowserAction(action, args) {
   } catch (e) {
     $('browser-action-info').textContent = 'error: ' + e.message;
     appendTerm('[BROWSER] ' + action + ' failed: ' + e.message, 'error');
+  }
+}
+
+async function applyFoundation() {
+  try {
+    const pattern = $('foundation-pattern').value;
+    const raw = ($('foundation-params').value || '').trim();
+    const body = {pattern};
+    if (raw) body.params = JSON.parse(raw);
+    const res = await api('/api/foundation/apply', {method:'POST', body: JSON.stringify(body)});
+    $('foundation-info').textContent = pattern + ' task_id=' + res.task_id;
+    appendTerm('[FOUNDATION] ' + pattern + ' => ' + res.result.substring(0,80), 'info');
+  } catch (e) {
+    $('foundation-info').textContent = 'error: ' + e.message;
+    appendTerm('[FOUNDATION] failed: ' + e.message, 'error');
   }
 }
 
