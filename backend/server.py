@@ -357,30 +357,70 @@ async def run_browser_task(task_id: str, task_text: str):
     await broadcast({"type": "task_update", "task_id": task_id, "status": "completed", "score": score})
 
 async def run_desktop_task(task_id: str, action: str, target: str, params: Dict):
-    """Desktop GUI task using computer-use pattern."""
+    """Desktop GUI task using computer-use pattern + real xdotool backend."""
     await broadcast({"type": "terminal_output", "task_id": task_id, "line": f"[{task_id[:12]}] 🖥️ Desktop control: {action}"})
-    await asyncio.sleep(0.8)
-    
-    steps = [
-        f"📸 Capture: Screenshot captured (SOM mode)",
-        f"🎯 Action: {action} on {target or 'current window'}",
-        f"✅ Verification: Action completed",
-    ]
-    
-    for i, step in enumerate(steps, 1):
-        await asyncio.sleep(1.0)
-        await broadcast({"type": "task_update", "task_id": task_id, "step": i, "total_steps": len(steps), "message": step})
-        await broadcast({"type": "terminal_output", "task_id": task_id, "line": f"[{task_id[:12]}] {step}"})
-    
-    score = 0.80 + (hash(task_id) % 15) / 100.0
+    await asyncio.sleep(0.5)
+
+    terminal_lines = []
+    try:
+        if action == "capture":
+            screenshot_path = f"/tmp/desktop_{task_id}.png"
+            try:
+                import tkinter as tk
+                from PIL import ImageGrab
+                img = ImageGrab.grab()
+                img.save(screenshot_path)
+                terminal_lines.append(f"📸 Screenshot saved: {screenshot_path}")
+            except Exception:
+                terminal_lines.append("⚠️ Screenshot unavailable: install pillow or scrot")
+
+        elif action == "click":
+            x = int(params.get("x", 0))
+            y = int(params.get("y", 0))
+            import subprocess
+            result = subprocess.run(["xdotool", "mousemove", str(x), str(y), "click", "1"], capture_output=True, text=True)
+            terminal_lines.append(f"🎯 Click at ({x},{y}) — rc={result.returncode}")
+
+        elif action == "type":
+            text = str(params.get("text", target))
+            import subprocess
+            result = subprocess.run(["xdotool", "type", "--", text], capture_output=True, text=True)
+            terminal_lines.append(f"⌨️ Typed: {text[:50]} — rc={result.returncode}")
+
+        elif action == "key":
+            key = str(params.get("key", target))
+            import subprocess
+            result = subprocess.run(["xdotool", "key", key], capture_output=True, text=True)
+            terminal_lines.append(f"🔑 Key: {key} — rc={result.returncode}")
+
+        elif action == "scroll":
+            direction = params.get("direction", "down")
+            amount = int(params.get("amount", 3))
+            button = 4 if direction == "up" else 5
+            import subprocess
+            result = subprocess.run(["xdotool", "click", str(button)] * amount, capture_output=True, text=True)
+            terminal_lines.append(f"🔄 Scroll {direction} x{amount} — rc={result.returncode}")
+
+        else:
+            terminal_lines.append(f"❓ Unknown desktop action: {action}")
+
+    except Exception as e:
+        terminal_lines.append(f"❌ Desktop error: {e}")
+
+    for i, line in enumerate(terminal_lines, 1):
+        await asyncio.sleep(0.5)
+        await broadcast({"type": "task_update", "task_id": task_id, "step": i, "total_steps": len(terminal_lines), "message": line})
+        await broadcast({"type": "terminal_output", "task_id": task_id, "line": f"[{task_id[:12]}] {line}"})
+
+    score = 0.85 if terminal_lines and not any("❌" in l for l in terminal_lines) else 0.65
     score = min(0.95, max(0.6, score))
-    
+
     conn = sqlite3.connect(DB_PATH)
     conn.execute("UPDATE tasks SET status='completed', score=?, steps=?, updated_at=? WHERE task_id=?",
-                 (score, len(steps), datetime.now(timezone.utc).isoformat(), task_id))
+                 (score, len(terminal_lines), datetime.now(timezone.utc).isoformat(), task_id))
     conn.commit()
     conn.close()
-    
+
     await broadcast({"type": "task_update", "task_id": task_id, "status": "completed", "score": score})
 
 # ─── ROOT ────────────────────────────────────────────────
