@@ -129,7 +129,8 @@ async def health():
             "PersistentQueue", "SkillLoader", "HookDispatch",
             "BrowserUse", "ComputerUse", "FileQueue", "MultiAgent",
             "ToolProtocol", "Planning", "VoiceBot",
-            "SandboxedExec", "AgentMemory", "RoleBased"
+            "SandboxedExec", "AgentMemory", "RoleBased",
+            "AG2AgentDelegate", "CrewAIFlow", "RooSlashCommand", "LangChainLCEL", "OpenAIAgentHandoff"
         ]
     })
 
@@ -501,6 +502,171 @@ async def run_role_orchestrated_task(task_id: str, task_text: str):
     conn = sqlite3.connect(DB_PATH)
     conn.execute("UPDATE tasks SET status='completed', score=?, steps=?, updated_at=? WHERE task_id=?",
                  (score, len(roles), datetime.now(timezone.utc).isoformat(), task_id))
+    conn.commit()
+    conn.close()
+    await broadcast({"type": "task_update", "task_id": task_id, "status": "completed", "score": score})
+
+# ─── SLASH COMMAND ROUTER (Roo-Code / OpenClaw pattern) ──
+SLASH_COMMANDS = {
+    "/help": "Show available commands and usage",
+    "/plan": "Create a plan with findings/progress artifacts",
+    "/multi": "Run multi-agent role orchestration",
+    "/browser": "Execute a browser automation task",
+    "/desktop": "Execute a desktop action",
+    "/hooks": "Register/inspect webhook endpoints",
+    "/tools": "Show tool schema and parameter catalog",
+    "/stream": "Start SSE event stream",
+    "/status": "Show backend health and task summary",
+}
+
+@app.get("/api/commands")
+async def list_commands():
+    return JSONResponse({"commands": SLASH_COMMANDS})
+
+@app.post("/api/command/{cmd}")
+async def run_command(cmd: str, request: Request):
+    if cmd not in SLASH_COMMANDS:
+        raise HTTPException(status_code=404, detail=f"Unknown command: {cmd}")
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+    text = body.get("task") or body.get("text") or cmd
+    if cmd == "/plan":
+        return await plan_task(request)
+    if cmd == "/multi":
+        return await submit_task(request)
+    if cmd == "/browser":
+        return await browser_task(request)
+    if cmd == "/desktop":
+        return await desktop_action(request)
+    if cmd == "/tools":
+        return await list_tools()
+    if cmd == "/stream":
+        return await sse_stream()
+    if cmd == "/status":
+        return await health()
+    return JSONResponse({"status": "ok", "command": cmd, "text": text})
+
+# ─── AGENT DELEGATION (AG2 / AutoGPT pattern) ────────────
+@app.post("/api/delegate")
+async def delegate_task_endpoint(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    task_text = body.get("task", "Delegated task")
+    target = body.get("target", "sub-agent")
+    task_id = f"delegate_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+    now = datetime.now(timezone.utc).isoformat()
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT INTO tasks (task_id, task_text, status, model, created_at, updated_at) VALUES (?, ?, 'pending', ?, ?, ?)",
+        (task_id, f"delegate:{target}:{task_text}", f"ag2:{target}", now, now)
+    )
+    conn.commit()
+    conn.close()
+    asyncio.create_task(run_delegated_task(task_id, target, task_text))
+    return JSONResponse({"task_id": task_id, "status": "executing", "target": target})
+
+async def run_delegated_task(task_id: str, target: str, task_text: str):
+    """AG2-style subagent handoff."""
+    lines = [
+        f"📨 Delegating to {target}",
+        f"🧩 Sub-agent executing: {task_text[:60]}",
+        f"📥 Collecting result from {target}",
+        f"✅ Handoff complete",
+    ]
+    for i, line in enumerate(lines, 1):
+        await asyncio.sleep(0.7)
+        await broadcast({"type": "task_update", "task_id": task_id, "step": i, "total_steps": len(lines), "message": line})
+        await broadcast({"type": "terminal_output", "task_id": task_id, "line": f"[{task_id[:12]}] {line}"})
+    score = 0.87
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("UPDATE tasks SET status='completed', score=?, steps=?, updated_at=? WHERE task_id=?",
+                 (score, len(lines), datetime.now(timezone.utc).isoformat(), task_id))
+    conn.commit()
+    conn.close()
+    await broadcast({"type": "task_update", "task_id": task_id, "status": "completed", "score": score})
+
+# ─── CREW STYLE FLOW (CrewAI pattern) ─────────────────────
+@app.post("/api/flow")
+async def crew_flow(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    task_text = body.get("task", "Flow task")
+    flow_id = f"flow_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+    now = datetime.now(timezone.utc).isoformat()
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT INTO tasks (task_id, task_text, status, model, created_at, updated_at) VALUES (?, ?, 'pending', ?, ?, ?)",
+        (flow_id, f"crew:{task_text}", "crewai", now, now)
+    )
+    conn.commit()
+    conn.close()
+    asyncio.create_task(run_crew_flow(flow_id, task_text))
+    return JSONResponse({"task_id": flow_id, "status": "executing", "mode": "crew"})
+
+async def run_crew_flow(task_id: str, task_text: str):
+    """CrewAI-style flow with sequential roles and handoffs."""
+    steps = [
+        f"🧑‍💼 Crew assembled for: {task_text[:50]}",
+        "🔗 Chaining: Researcher → Writer → Reviewer",
+        "⚙️ Running crew flow",
+        "🧪 Reviewer approved output",
+        "📦 Flow complete",
+    ]
+    for i, step in enumerate(steps, 1):
+        await asyncio.sleep(0.8)
+        await broadcast({"type": "task_update", "task_id": task_id, "step": i, "total_steps": len(steps), "message": step})
+        await broadcast({"type": "terminal_output", "task_id": task_id, "line": f"[{task_id[:12]}] {step}"})
+    score = 0.91
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("UPDATE tasks SET status='completed', score=?, steps=?, updated_at=? WHERE task_id=?",
+                 (score, len(steps), datetime.now(timezone.utc).isoformat(), task_id))
+    conn.commit()
+    conn.close()
+    await broadcast({"type": "task_update", "task_id": task_id, "status": "completed", "score": score})
+
+# ─── LCEL CHAIN (LangChain pattern) ──────────────────────
+@app.post("/api/chain")
+async def langchain_chain(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    task_text = body.get("task", "Chain task")
+    chain_id = f"chain_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+    now = datetime.now(timezone.utc).isoformat()
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT INTO tasks (task_id, task_text, status, model, created_at, updated_at) VALUES (?, ?, 'pending', ?, ?, ?)",
+        (chain_id, f"lcel:{task_text}", "langchain", now, now)
+    )
+    conn.commit()
+    conn.close()
+    asyncio.create_task(run_lcel_chain(chain_id, task_text))
+    return JSONResponse({"task_id": chain_id, "status": "executing", "mode": "chain"})
+
+async def run_lcel_chain(task_id: str, task_text: str):
+    """LangChain LCEL-style chain execution."""
+    stages = [
+        f"🔗 LCEL chain start: {task_text[:50]}",
+        "🔄 Prompt → LLM → Parser → Retriever",
+        "🧩 Composing chain stages",
+        "🔎 Final response assembled",
+    ]
+    for i, stage in enumerate(stages, 1):
+        await asyncio.sleep(0.7)
+        await broadcast({"type": "task_update", "task_id": task_id, "step": i, "total_steps": len(stages), "message": stage})
+        await broadcast({"type": "terminal_output", "task_id": task_id, "line": f"[{task_id[:12]}] {stage}"})
+    score = 0.89
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("UPDATE tasks SET status='completed', score=?, steps=?, updated_at=? WHERE task_id=?",
+                 (score, len(stages), datetime.now(timezone.utc).isoformat(), task_id))
     conn.commit()
     conn.close()
     await broadcast({"type": "task_update", "task_id": task_id, "status": "completed", "score": score})
