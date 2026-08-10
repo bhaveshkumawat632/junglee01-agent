@@ -235,6 +235,10 @@
       <div class="label">Composable block execution</div>
       <div class="label" id="block-info">POST /api/blocks/run</div>
       <button class="btn" onclick="runBlock('bash', {command:'echo hello'})">Run Bash Block</button>
+      <div class="input-row" style="margin-top:8px">
+        <input type="text" id="block-chain" placeholder="Compose blocks: bash:echo hi | search:news | write:out.txt">
+        <button onclick="runBlockChain()">Run Chain</button>
+      </div>
     </div>
 
     <div class="terminal">
@@ -499,6 +503,30 @@ async function runBlock(type, args) {
     $('block-info').textContent = 'error: ' + e.message;
     appendTerm('[BLOCK] failed: ' + e.message, 'error');
   }
+}
+
+async function runBlockChain() {
+  const input = $('block-chain');
+  const text = input.value.trim();
+  if (!text) return;
+  const parts = text.split('|').map(s => s.trim()).filter(Boolean);
+  appendTerm('[BLOCK-CHAIN] Starting ' + parts.length + ' blocks...', 'info');
+  let lastResult = '';
+  for (const part of parts) {
+    const [type, ...rest] = part.split(':');
+    const argStr = rest.join(':').trim();
+    const args = argStr ? {command: argStr, query: argStr, path: argStr} : {};
+    try {
+      const res = await api('/api/blocks/run', {method:'POST', body: JSON.stringify({type, args})});
+      lastResult = res.result;
+      appendTerm('[BLOCK-CHAIN] ' + type + ' => ' + lastResult, 'info');
+    } catch (e) {
+      appendTerm('[BLOCK-CHAIN] ' + type + ' FAILED: ' + e.message, 'error');
+      break;
+    }
+  }
+  $('block-info').textContent = 'chain done: ' + lastResult;
+  input.value = '';
 }
 
 async function probeSSE() {
