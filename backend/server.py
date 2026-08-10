@@ -35,7 +35,7 @@ SKILLS_DIR = Path.home() / ".hermes" / "skills"
 BOT_QUEUE = BASE_DIR / "bot_queue"
 
 # Version
-VERSION = "5.0.0"
+VERSION = "5.5.0"
 
 # Active WebSocket connections
 active_connections: List[WebSocket] = []
@@ -130,8 +130,57 @@ async def health():
             "BrowserUse", "ComputerUse", "FileQueue", "MultiAgent",
             "ToolProtocol", "Planning", "VoiceBot",
             "SandboxedExec", "AgentMemory", "RoleBased",
-            "AG2AgentDelegate", "CrewAIFlow", "RooSlashCommand", "LangChainLCEL", "OpenAIAgentHandoff"
+            "AG2AgentDelegate", "CrewAIFlow", "RooSlashCommand", "LangChainLCEL", "OpenAIAgentHandoff",
+            "ChatDevDAG", "ChatDevCycle", "ChatDevMajorityVote", "ChatDevDynamicEdge",
+            "AutoGenConversation", "CamelRolePlay",
+            "FoundationToolUse", "FoundationInference", "FoundationMultimodal", "FoundationOpenAICompat", "FoundationModelExport"
         ]
+    })
+
+# ─── PATTERNS CATALOG ─────────────────────────────────────
+ALL_CAPABILITIES = [
+    {"key": "react", "name": "ReAct Loop", "endpoint": "/api/task", "method": "POST", "description": "Reasoning + acting with self-evaluation scoring"},
+    {"key": "state_graph", "name": "StateGraph", "endpoint": "/api/task/plan", "method": "POST", "description": "State-machine task execution with file artifacts"},
+    {"key": "agent_tool", "name": "AgentTool", "endpoint": "/api/task", "method": "POST", "description": "Agent tool use with parameter validation"},
+    {"key": "self_eval", "name": "Self-Evaluation", "endpoint": "/api/task", "method": "POST", "description": "Keep/discard decision after task execution"},
+    {"key": "retry", "name": "Retry Logic", "endpoint": "/api/task", "method": "POST", "description": "Automatic retry on transient failures"},
+    {"key": "persistent_queue", "name": "PersistentQueue", "endpoint": "/api/tasks", "method": "GET", "description": "SQLite-backed persistent task queue"},
+    {"key": "skill_loader", "name": "SkillLoader", "endpoint": "/api/skills", "method": "GET", "description": "Dynamic skill discovery and loading"},
+    {"key": "hook_dispatch", "name": "HookDispatch", "endpoint": "/api/hooks", "method": "POST", "description": "Webhook endpoint for external system integration"},
+    {"key": "browser_use", "name": "BrowserUse", "endpoint": "/api/browser/task", "method": "POST", "description": "Full browser automation via Playwright"},
+    {"key": "browser_action", "name": "BrowserAction", "endpoint": "/api/browser/action", "method": "POST", "description": "Granular browser actions: navigate, click, type, screenshot, content, press, evaluate"},
+    {"key": "computer_use", "name": "ComputerUse", "endpoint": "/api/desktop/action", "method": "POST", "description": "Desktop control via xdotool + tkinter screenshot"},
+    {"key": "file_queue", "name": "FileQueue", "endpoint": "/api/telegram/status", "method": "GET", "description": "File-based message queue for Telegram relay"},
+    {"key": "multi_agent", "name": "MultiAgent", "endpoint": "/api/delegate", "method": "POST", "description": "Multi-agent orchestration: plan/multi/react modes"},
+    {"key": "tool_protocol", "name": "ToolProtocol", "endpoint": "/api/tools", "method": "GET", "description": "Structured tool schema with parameter names and types"},
+    {"key": "planning", "name": "Planning", "endpoint": "/api/task/plan", "method": "POST", "description": "Planning-with-files: plan/findings/progress markdown"},
+    {"key": "voice_bot", "name": "VoiceBot", "endpoint": "/api/voice", "method": "POST", "description": "Text-to-speech voice memo generation"},
+    {"key": "sandboxed_exec", "name": "SandboxedExec", "endpoint": "/api/blocks/run", "method": "POST", "description": "AutoGPT-style block execution registry"},
+    {"key": "agent_memory", "name": "AgentMemory", "endpoint": "/api/memory", "method": "GET", "description": "Persistent agent memory store"},
+    {"key": "role_based", "name": "RoleBased", "endpoint": "/api/camel/roleplay", "method": "POST", "description": "CAMEL-style role-based multi-agent conversation"},
+    {"key": "ag2_delegate", "name": "AG2Delegate", "endpoint": "/api/delegate", "method": "POST", "description": "AG2-style subagent handoff and delegation"},
+    {"key": "crewai_flow", "name": "CrewAIFlow", "endpoint": "/api/flow", "method": "POST", "description": "CrewAI-style role-based flow execution"},
+    {"key": "roo_slash", "name": "RooSlashCommand", "endpoint": "/api/commands", "method": "GET", "description": "Roo-Code-style slash command router"},
+    {"key": "langchain_lcel", "name": "LangChainLCEL", "endpoint": "/api/chain", "method": "POST", "description": "LangChain LCEL-style chain execution"},
+    {"key": "openai_handoff", "name": "OpenAIAgentHandoff", "endpoint": "/api/chain", "method": "POST", "description": "OpenAI-style agent handoff pattern"},
+    {"key": "chatdev_dag", "name": "ChatDevDAG", "endpoint": "/api/chatdev/workflow", "method": "POST", "description": "ChatDev DAG workflow execution"},
+    {"key": "chatdev_cycle", "name": "ChatDevCycle", "endpoint": "/api/chatdev/workflow", "method": "POST", "description": "ChatDev cycle-based iterative workflow"},
+    {"key": "chatdev_majority", "name": "ChatDevMajorityVote", "endpoint": "/api/chatdev/workflow", "method": "POST", "description": "ChatDev majority-vote parallel execution"},
+    {"key": "chatdev_dynamic", "name": "ChatDevDynamicEdge", "endpoint": "/api/chatdev/workflow", "method": "POST", "description": "ChatDev conditional dynamic edge routing"},
+    {"key": "autogen_conversation", "name": "AutoGenConversation", "endpoint": "/api/autogen/conversation", "method": "POST", "description": "AutoGen multi-agent conversation pattern"},
+    {"key": "foundation_tool_use", "name": "FoundationToolUse", "endpoint": "/api/foundation/apply", "method": "POST", "description": "ChatGLM3-style tool calling template"},
+    {"key": "foundation_inference", "name": "FoundationInference", "endpoint": "/api/foundation/apply", "method": "POST", "description": "InternLM-style agent inference template"},
+    {"key": "foundation_multimodal", "name": "FoundationMultimodal", "endpoint": "/api/foundation/apply", "method": "POST", "description": "Yi-style multi-modal vision+language template"},
+    {"key": "foundation_openai", "name": "FoundationOpenAICompat", "endpoint": "/api/foundation/apply", "method": "POST", "description": "Qwen-style OpenAI-compatible API adapter template"},
+    {"key": "foundation_export", "name": "FoundationModelExport", "endpoint": "/api/foundation/apply", "method": "POST", "description": "Segment-anything ONNX export template"},
+]
+
+@app.get("/api/patterns")
+async def patterns_catalog():
+    return JSONResponse({
+        "version": VERSION,
+        "total_capabilities": len(ALL_CAPABILITIES),
+        "capabilities": ALL_CAPABILITIES
     })
 
 # ─── SKILLS ──────────────────────────────────────────────
