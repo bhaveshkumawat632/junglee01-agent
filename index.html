@@ -177,7 +177,22 @@
     <div class="card">
       <h3>WebSocket</h3>
       <div id="ws-status"><span class="status warn">CONNECTING</span></div>
-      <div class="label">Live terminal stream</div>
+      <div class="label" id="ws-info">Live terminal stream</div>
+      <div class="label">Active connections: <span id="ws-conn-count">0</span></div>
+    </div>
+
+    <div class="card">
+      <h3>SSE Stream</h3>
+      <div id="sse-status"><span class="status warn">IDLE</span></div>
+      <div class="label">AutoGPT/AG-UI event stream</div>
+      <button class="btn" onclick="probeSSE()">Test SSE</button>
+    </div>
+
+    <div class="card">
+      <h3>Tool Protocol</h3>
+      <div class="label">Roo-Code / OpenClaw typed schema</div>
+      <div class="label" id="tool-info">Load /api/tools to inspect</div>
+      <button class="btn" onclick="loadTools()">Load Tool Schema</button>
     </div>
 
     <div class="card">
@@ -253,6 +268,7 @@ async function loadHealth() {
     $('health').style.color = h.status === 'healthy' ? '#10b981' : '#ef4444';
     $('skills').textContent = h.skills_loaded;
     $('tasks').textContent = h.tasks || 0;
+    $('ws-conn-count').textContent = h.active_connections || 0;
     const pat = $('patterns');
     pat.innerHTML = '';
     (h.patterns || []).forEach(p => {
@@ -357,6 +373,10 @@ async function pollTask(taskId, kind) {
         if (kind === 'browser') setStatus('browser-status', false, 'TIMEOUT');
         else if (kind === 'desktop') setStatus('desktop-status', false, 'TIMEOUT');
       }
+      const last = $('last-task');
+      if (last && task) {
+        last.textContent = 'Last: ' + task.task_id + ' ' + task.status + ' score=' + ((task.score||0).toFixed(2));
+      }
     } catch (e) { /* ignore transient fetch errors during poll */ }
   }, 1500);
 }
@@ -376,6 +396,42 @@ async function submitTask() {
     input.value = '';
   } catch (e) {
     appendTerm('[TASK] Failed: ' + e.message, 'error');
+  }
+}
+
+async function loadTools() {
+  try {
+    const data = await api('/api/tools');
+    const paramCount = (data.tool_param_names || []).length;
+    const nativeCount = Object.keys(data.native_tool_args || {}).length;
+    $('tool-info').textContent = 'Params: ' + paramCount + ' | Native tools: ' + nativeCount;
+    appendTerm('[TOOLS] schema loaded params=' + paramCount + ' native=' + nativeCount, 'info');
+  } catch (e) {
+    $('tool-info').textContent = 'load failed: ' + e.message;
+  }
+}
+
+async function probeSSE() {
+  try {
+    setStatus('sse-status', true, 'STREAMING');
+    appendTerm('[SSE] Starting stream probe...', 'info');
+    const res = await fetch(BASE + '/api/stream');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let count = 0;
+    while (count < 3) {
+      const {value, done} = await reader.read();
+      if (done) break;
+      const text = dec.decode(value);
+      appendTerm('[SSE] ' + text.trim());
+      count++;
+    }
+    setStatus('sse-status', true, 'OK');
+    appendTerm('[SSE] Stream probe complete', 'info');
+  } catch (e) {
+    setStatus('sse-status', false, 'ERROR');
+    appendTerm('[SSE] Failed: ' + e.message, 'error');
   }
 }
 
