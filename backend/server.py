@@ -20,7 +20,7 @@ from typing import Optional, Dict, List, Any
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
@@ -536,6 +536,43 @@ async def root():
             "websocket": "ws:///ws"
         }
     })
+
+# ─── TOOL PROTOCOL (Roo-Code / OpenClaw pattern) ────────
+TOOL_PARAM_NAMES = [
+    "command","path","content","regex","file_pattern","recursive","action","url",
+    "coordinate","text","server_name","tool_name","arguments","uri","question",
+    "result","diff","mode_slug","reason","line","mode","message","cwd","follow_up",
+    "task","size","query","args","skill","start_line","end_line","todos","prompt",
+    "image","operations","patch","file_path","old_string","new_string","replace_all",
+    "expected_replacements","timeout","artifact_id","search","offset","limit",
+    "indentation","anchor_line","max_levels","include_siblings","include_header",
+    "max_lines","files","line_ranges"
+]
+
+NATIVE_TOOL_ARGS = {
+    "read_file": {"path": "string", "offset": "int", "limit": "int"},
+    "write_file": {"path": "string", "content": "string"},
+    "patch": {"path": "string", "old_string": "string", "new_string": "string", "replace_all": "bool"},
+    "execute_command": {"command": "string", "cwd": "string", "timeout": "int"},
+    "browser_task": {"task": "string", "url": "string"},
+    "desktop_action": {"action": "string", "target": "string", "params": "object"},
+}
+
+@app.get("/api/tools")
+async def list_tools():
+    return JSONResponse({
+        "tool_param_names": TOOL_PARAM_NAMES,
+        "native_tool_args": NATIVE_TOOL_ARGS
+    })
+
+# ─── SSE STREAM (AutoGPT / AG-UI pattern) ─────────────────
+@app.get("/api/stream")
+async def sse_stream():
+    async def event_stream():
+        for i in range(3):
+            yield f"data: heartbeat {i}\n\n"
+            await asyncio.sleep(1)
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080, log_level="info")
