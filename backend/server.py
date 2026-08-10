@@ -579,14 +579,17 @@ async def websocket_endpoint(ws: WebSocket):
 
 async def broadcast(msg: Dict[str, Any]):
     dead = []
-    for ws in active_connections:
+    for conn in active_connections:
         try:
-            await ws.send_json(msg)
+            if hasattr(conn, "send_json"):
+                await conn.send_json(msg)
+            elif hasattr(conn, "put"):
+                conn.put_nowait(msg)
         except Exception:
-            dead.append(ws)
-    for ws in dead:
-        if ws in active_connections:
-            active_connections.remove(ws)
+            dead.append(conn)
+    for conn in dead:
+        if conn in active_connections:
+            active_connections.remove(conn)
 
 # ─── CORE EXECUTION ───────────────────────────────────────
 async def run_react_task(task_id: str, task_text: str):
@@ -1100,11 +1103,19 @@ async def list_tools():
 
 # ─── SSE STREAM (AutoGPT / AG-UI pattern) ─────────────────
 @app.get("/api/stream")
-async def sse_stream():
+async def sse_stream(request: Request):
     async def event_stream():
-        for i in range(3):
-            yield f"data: heartbeat {i}\n\n"
-            await asyncio.sleep(1)
+        q = asyncio.Queue()
+        active_connections.append(q)
+        try:
+            while True:
+                msg = await q.get()
+                yield f"data: {json.dumps(msg)}\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            if q in active_connections:
+                active_connections.remove(q)
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 if __name__ == "__main__":
