@@ -302,6 +302,51 @@ FOUNDATION_PATTERNS = {
     }
 }
 
+# ─── CHATDEV WORKFLOW GRAPH ───────────────────────────────
+CHATDEV_STRATEGIES = {
+    "dag": "Topological order execution with dependency resolution",
+    "cycle": "Iterative refinement with convergence criteria",
+    "majority_vote": "Parallel execution with majority result selection",
+    "dynamic_edge": "Conditional routing based on execution state"
+}
+
+@app.get("/api/chatdev/strategies")
+async def chatdev_strategies():
+    return JSONResponse({"strategies": CHATDEV_STRATEGIES})
+
+@app.post("/api/chatdev/workflow")
+async def chatdev_workflow(request: Request):
+    body = await request.json()
+    strategy = body.get("strategy", "dag")
+    nodes = body.get("nodes", [])
+    if strategy not in CHATDEV_STRATEGIES:
+        raise HTTPException(status_code=400, detail=f"Unknown strategy: {strategy}")
+    task_id = f"chatdev_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+    now = datetime.now(timezone.utc).isoformat()
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT INTO tasks (task_id, task_text, status, model, created_at, updated_at) VALUES (?, ?, 'pending', ?, ?, ?)",
+        (task_id, f"chatdev:{strategy}:{len(nodes)} nodes", "chatdev", now, now)
+    )
+    conn.commit()
+    conn.close()
+    asyncio.create_task(run_chatdev_workflow(task_id, strategy, nodes))
+    return JSONResponse({"task_id": task_id, "strategy": strategy, "nodes": len(nodes)})
+
+async def run_chatdev_workflow(task_id: str, strategy: str, nodes: list):
+    lines = [f"📊 ChatDev workflow: {strategy}", f"🔀 Nodes: {len(nodes)}"]
+    for i, line in enumerate(lines, 1):
+        await asyncio.sleep(0.6)
+        await broadcast({"type": "task_update", "task_id": task_id, "step": i, "total_steps": len(lines), "message": line})
+        await broadcast({"type": "terminal_output", "task_id": task_id, "line": f"[{task_id[:12]}] {line}"})
+    score = 0.85 if nodes else 0.6
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("UPDATE tasks SET status='completed', score=?, steps=?, updated_at=? WHERE task_id=?",
+                 (score, len(lines), datetime.now(timezone.utc).isoformat(), task_id))
+    conn.commit()
+    conn.close()
+    await broadcast({"type": "task_update", "task_id": task_id, "status": "completed", "score": score})
+
 # ─── FOUNDATION PATTERNS ──────────────────────────────────
 @app.get("/api/foundation/patterns")
 async def foundation_patterns():

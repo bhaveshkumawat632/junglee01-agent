@@ -266,6 +266,22 @@
     </div>
 
     <div class="card">
+      <h3>ChatDev Workflow</h3>
+      <div class="label">Graph-based multi-agent orchestration</div>
+      <div class="label" id="chatdev-info">POST /api/chatdev/workflow</div>
+      <div class="input-row">
+        <select id="chatdev-strategy">
+          <option value="dag">dag</option>
+          <option value="cycle">cycle</option>
+          <option value="majority_vote">majority_vote</option>
+          <option value="dynamic_edge">dynamic_edge</option>
+        </select>
+        <input type="text" id="chatdev-nodes" placeholder="nodes: design,code,test" value="design,code,test">
+      </div>
+      <button class="btn" onclick="runChatDevWorkflow()">Run Workflow</button>
+    </div>
+
+    <div class="card">
       <h3>AutoGPT Blocks</h3>
       <div class="label">Composable block execution</div>
       <div class="label" id="block-info">POST /api/blocks/run</div>
@@ -552,6 +568,19 @@ async function applyFoundation() {
   } catch (e) {
     $('foundation-info').textContent = 'error: ' + e.message;
     appendTerm('[FOUNDATION] failed: ' + e.message, 'error');
+  }
+}
+
+async function runChatDevWorkflow() {
+  try {
+    const strategy = $('chatdev-strategy').value;
+    const nodes = ($('chatdev-nodes').value || '').split(',').map(s => s.trim()).filter(Boolean);
+    const res = await api('/api/chatdev/workflow', {method:'POST', body: JSON.stringify({strategy, nodes})});
+    $('chatdev-info').textContent = strategy + ' task_id=' + res.task_id;
+    appendTerm('[CHATDEV] ' + strategy + ' nodes=' + res.nodes, 'info');
+  } catch (e) {
+    $('chatdev-info').textContent = 'error: ' + e.message;
+    appendTerm('[CHATDEV] failed: ' + e.message, 'error');
   }
 }
 
