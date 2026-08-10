@@ -1,0 +1,5 @@
+file '/home/junglee01/junglee01-project/vidrush_premium/seg1.mp4'
+file '/home/junglee01/junglee01-project/vidrush_premium/seg2.mp4'
+file '/home/junglee01/junglee01-project/vidrush_premium/seg3.mp4'
+file '/home/junglee01/junglee01-project/vidrush_premium/seg4.mp4'
+file '/home/junglee01/junglee01-project/vidrush_premium/seg5.mp4'
