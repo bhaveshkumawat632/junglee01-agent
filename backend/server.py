@@ -271,13 +271,76 @@ async def browser_task(request: Request):
 # ─── AUTO-GPT BLOCK EXECUTION ─────────────────────────────
 BLOCK_REGISTRY = {
     "bash": lambda args: f"bash -c {args.get('command','')}",
-    "python": lambda args: f"python3 {args.get('file','')} {args.get('script','')}",
+    "python": lambda args: f"python3 {args.get('file','')}",
     "search": lambda args: f"search: {args.get('query','')}",
     "write": lambda args: f"write: {args.get('path','')}",
     "read": lambda args: f"read: {args.get('path','')}",
 }
+EXECUTION_HISTORY = []
 
-@app.get("/api/blocks")
+# ─── FOUNDATION: MULTI-MODAL + TOOL-USE + MODEL INFERENCE ──
+FOUNDATION_PATTERNS = {
+    "tool_use": {
+        "description": "ChatGLM3-style tool calling with typed inputs",
+        "template": "def tool_{name}({params}):\n    return execute_tool('{name}', {params})"
+    },
+    "agent_inference": {
+        "description": "InternLM-style agent inference with prompt-engineer + assistant",
+        "template": "PROMPT_ENGINEER_PROMPT = '{system}'\nASSISTANT_PROMPT = '{assistant}'"
+    },
+    "multi_modal": {
+        "description": "Yi-style multi-modal architecture (vision + language)",
+        "template": "def forward(self, image, text):\n    image_embeds = self.vision_encoder(image)\n    text_embeds = self.language_model(text)\n    return self.fusion(image_embeds, text_embeds)"
+    },
+    "openai_compat": {
+        "description": "Qwen-style OpenAI-compatible API adapter",
+        "template": "def openai_chat(messages, model='default'):\n    return requests.post('/v1/chat/completions', json={'model': model, 'messages': messages})"
+    },
+    "model_export": {
+        "description": "Segment-anything ONNX export pattern",
+        "template": "def export_onnx(model, sample_input, path):\n    torch.onnx.export(model, sample_input, path, opset_version=15)"
+    }
+}
+
+# ─── FOUNDATION PATTERNS ──────────────────────────────────
+@app.get("/api/foundation/patterns")
+async def foundation_patterns():
+    return JSONResponse({
+        "foundation_patterns": {
+            k: {"description": v["description"], "template": v["template"]}
+            for k, v in FOUNDATION_PATTERNS.items()
+        }
+    })
+
+@app.post("/api/foundation/apply")
+async def foundation_apply(request: Request):
+    body = await request.json()
+    pattern = body.get("pattern")
+    params = body.get("params", {})
+    if pattern not in FOUNDATION_PATTERNS:
+        raise HTTPException(status_code=400, detail=f"Unknown foundation pattern: {pattern}")
+    template = FOUNDATION_PATTERNS[pattern]["template"]
+    try:
+        if params:
+            result = template.format(**params)
+        else:
+            result = template
+    except Exception:
+        result = template
+    task_id = f"foundation_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+    now = datetime.now(timezone.utc).isoformat()
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT INTO tasks (task_id, task_text, status, model, created_at, updated_at) VALUES (?, ?, 'completed', ?, ?, ?)",
+        (task_id, f"foundation:{pattern}", "foundation", now, now)
+    )
+    conn.commit()
+    conn.close()
+    await broadcast({"type": "terminal_output", "task_id": task_id, "line": f"[{task_id[:12]}] foundation pattern {pattern} applied"})
+    return JSONResponse({"task_id": task_id, "pattern": pattern, "result": result})
+
+# ─── DESKTOP AUTOMATION (computer-use pattern) ────────────
+@app.post("/api/blocks")
 async def list_blocks():
     return JSONResponse({"blocks": list(BLOCK_REGISTRY.keys())})
 
