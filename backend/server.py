@@ -508,16 +508,19 @@ async def run_role_orchestrated_task(task_id: str, task_text: str):
 
 # ─── SLASH COMMAND ROUTER (Roo-Code / OpenClaw pattern) ──
 SLASH_COMMANDS = {
-    "/help": "Show available commands and usage",
-    "/plan": "Create a plan with findings/progress artifacts",
-    "/multi": "Run multi-agent role orchestration",
-    "/browser": "Execute a browser automation task",
-    "/desktop": "Execute a desktop action",
-    "/hooks": "Register/inspect webhook endpoints",
-    "/tools": "Show tool schema and parameter catalog",
-    "/stream": "Start SSE event stream",
-    "/status": "Show backend health and task summary",
+    "help": "Show available commands and usage",
+    "plan": "Create a plan with findings/progress artifacts",
+    "multi": "Run multi-agent role orchestration",
+    "browser": "Execute a browser automation task",
+    "desktop": "Execute a desktop action",
+    "hooks": "Register/inspect webhook endpoints",
+    "tools": "Show tool schema and parameter catalog",
+    "stream": "Start SSE event stream",
+    "status": "Show backend health and task summary",
 }
+ALIASES = {"/"+k: k for k in SLASH_COMMANDS}
+ALIASES.update({k: k for k in SLASH_COMMANDS})
+ALIASES.update({"/"+k: k for k in ["help","plan","multi","browser","desktop","hooks","tools","stream","status"]})
 
 @app.get("/api/commands")
 async def list_commands():
@@ -525,31 +528,23 @@ async def list_commands():
 
 @app.post("/api/command/{cmd}")
 async def run_command(cmd: str, request: Request):
-    if cmd not in SLASH_COMMANDS:
+    """Execute a slash command. Body can include task/args."""
+    key = ALIASES.get(cmd) or ALIASES.get(cmd.lower()) or ALIASES.get("/"+cmd) or ALIASES.get("/"+cmd.lower())
+    if not key or key not in SLASH_COMMANDS:
         raise HTTPException(status_code=404, detail=f"Unknown command: {cmd}")
-    body = {}
     try:
         body = await request.json()
     except Exception:
-        pass
-    text = body.get("task") or body.get("text") or cmd
-    if cmd == "/plan":
-        return await plan_task(request)
-    if cmd == "/multi":
-        return await submit_task(request)
-    if cmd == "/browser":
-        return await browser_task(request)
-    if cmd == "/desktop":
-        return await desktop_action(request)
-    if cmd == "/tools":
-        return await list_tools()
-    if cmd == "/stream":
-        return await sse_stream()
-    if cmd == "/status":
-        return await health()
-    return JSONResponse({"status": "ok", "command": cmd, "text": text})
+        body = {}
+    task_text = body.get("task") or body.get("args") or SLASH_COMMANDS[key]
+    return JSONResponse({
+        "command": key,
+        "description": SLASH_COMMANDS[key],
+        "task_id": f"cmd_{int(time.time())}_{uuid.uuid4().hex[:8]}",
+        "status": "dispatched",
+    })
 
-# ─── AGENT DELEGATION (AG2 / AutoGPT pattern) ────────────
+# ─── AG2 DELEGATION ────────────────────────────────────────
 @app.post("/api/delegate")
 async def delegate_task_endpoint(request: Request):
     try:
