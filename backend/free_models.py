@@ -96,18 +96,9 @@ PROVIDERS = [
         "name": "Ollama Local",
         "base_url": "http://localhost:11434/v1",
         "env_key": None,
-        "models": ["deepseek-r1:7b", "llama3.1:8b", "gemma2:9b"],
+        "models": ["deepseek-r1:7b", "deepseek-hermes:7b", "qwen2.5:7b"],
         "free": True,
-        "note": "Local unlimited, offline capable"
-    },
-    {
-        "id": "ollama_cloud",
-        "name": "Ollama Cloud",
-        "base_url": "https://api.ollama.com",
-        "env_key": "OLLAMA_CLOUD_KEY",
-        "models": ["llama3.1:8b", "gemma2:9b"],
-        "free": True,
-        "note": "Free cloud tier, session limits"
+        "note": "Unlimited local inference, no API key"
     },
     {
         "id": "nvidia_nim",
