@@ -234,9 +234,18 @@
       <h3>Browser Actions</h3>
       <div class="label">Real Playwright automation</div>
       <div class="label" id="browser-action-info">POST /api/browser/action</div>
-      <button class="btn" onclick="runBrowserAction('navigate', {url:'https://example.com'})">Navigate</button>
+      <div class="input-row">
+        <input type="text" id="browser-url" placeholder="URL" value="https://example.com">
+        <input type="text" id="browser-selector" placeholder="Selector (optional)">
+        <input type="text" id="browser-text" placeholder="Text/JS (optional)">
+      </div>
+      <button class="btn" onclick="runBrowserAction('navigate', {url:$('browser-url').value})">Navigate</button>
       <button class="btn" onclick="runBrowserAction('screenshot', {})">Screenshot</button>
       <button class="btn" onclick="runBrowserAction('content', {})">Content</button>
+      <button class="btn" onclick="runBrowserAction('click', {selector:$('browser-selector').value})">Click</button>
+      <button class="btn" onclick="runBrowserAction('type', {selector:$('browser-selector').value, text:$('browser-text').value})">Type</button>
+      <button class="btn" onclick="runBrowserAction('press', {text:$('browser-text').value})">Press</button>
+      <button class="btn" onclick="runBrowserAction('evaluate', {text:$('browser-text').value})">Eval JS</button>
     </div>
 
     <div class="card">

@@ -498,6 +498,16 @@ async def run_browser_action(task_id: str, action: str, url: str, text: str, sel
                 terminal_lines.append(f"⌨️ Typed into {selector}: {text[:50]}")
                 score = 0.85
             
+            elif action == "press" and text:
+                await page.keyboard.press(text)
+                terminal_lines.append(f"🔑 Pressed key: {text}")
+                score = 0.8
+            
+            elif action == "evaluate" and text:
+                result = await page.evaluate(text)
+                terminal_lines.append(f"⚡ Evaluated JS: {str(result)[:80]}")
+                score = 0.85
+            
             elif action == "content":
                 content = await page.content()
                 terminal_lines.append(f"📝 Page content length: {len(content)} chars")
