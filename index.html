@@ -282,6 +282,17 @@
     </div>
 
     <div class="card">
+      <h3>Camel RolePlay</h3>
+      <div class="label">Role-based multi-agent conversation</div>
+      <div class="label" id="camel-info">POST /api/camel/roleplay</div>
+      <div class="input-row">
+        <input type="text" id="camel-task" placeholder="Task" value="Build a web app">
+        <input type="text" id="camel-roles" placeholder="Roles: Dev,Reviewer" value="Developer,Reviewer">
+      </div>
+      <button class="btn" onclick="runCamelRolePlay()">Start RolePlay</button>
+    </div>
+
+    <div class="card">
       <h3>AutoGPT Blocks</h3>
       <div class="label">Composable block execution</div>
       <div class="label" id="block-info">POST /api/blocks/run</div>
@@ -581,6 +592,19 @@ async function runChatDevWorkflow() {
   } catch (e) {
     $('chatdev-info').textContent = 'error: ' + e.message;
     appendTerm('[CHATDEV] failed: ' + e.message, 'error');
+  }
+}
+
+async function runCamelRolePlay() {
+  try {
+    const task_prompt = $('camel-task').value || 'Role play task';
+    const roles = ($('camel-roles').value || '').split(',').map(s => s.trim()).filter(Boolean);
+    const res = await api('/api/camel/roleplay', {method:'POST', body: JSON.stringify({task_prompt, roles})});
+    $('camel-info').textContent = 'task_id=' + res.task_id;
+    appendTerm('[CAMEL] ' + res.task_prompt + ' roles=' + res.roles.join(','), 'info');
+  } catch (e) {
+    $('camel-info').textContent = 'error: ' + e.message;
+    appendTerm('[CAMEL] failed: ' + e.message, 'error');
   }
 }
 
