@@ -35,10 +35,10 @@ SKILLS_DIR = Path.home() / ".hermes" / "skills"
 BOT_QUEUE = BASE_DIR / "bot_queue"
 
 # Version
-VERSION = "5.5.0"
+VERSION = "5.6.0"
 
 # Active WebSocket connections
-active_connections: List[WebSocket] = []
+active_connections: List[Any] = []
 
 # Initialize database
 def init_db():
@@ -1101,7 +1101,23 @@ async def list_tools():
         "native_tool_args": NATIVE_TOOL_ARGS
     })
 
-# ─── SSE STREAM (AutoGPT / AG-UI pattern) ─────────────────
+# ─── FREE MODELS ROUTER ───────────────────────────────────
+from free_models import get_provider_catalog, chat_completions
+
+@app.get("/api/free-models/providers")
+async def free_model_providers():
+    return JSONResponse(get_provider_catalog())
+
+@app.post("/api/free-models/chat")
+async def free_model_chat(request: Request):
+    body = await request.json()
+    messages = body.get("messages", [])
+    model = body.get("model")
+    provider_id = body.get("provider")
+    result = chat_completions(messages, model=model, provider_id=provider_id)
+    return JSONResponse(result)
+
+# ─── SSE STREAM ───────────────────────────────────────────
 @app.get("/api/stream")
 async def sse_stream(request: Request):
     async def event_stream():

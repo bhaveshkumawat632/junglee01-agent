@@ -129,7 +129,7 @@
 <body>
   <div class="header">
     <h1>HERMES AGENT</h1>
-    <p>Autonomous AI Platform — v5.5 | Live Terminal Stream</p>
+    <p>Autonomous AI Platform — v5.6 | Live Terminal Stream</p>
   </div>
 
   <div class="grid">
@@ -328,6 +328,27 @@
         <input type="text" id="block-chain" placeholder="Compose blocks: bash:echo hi | search:news | write:out.txt">
         <button onclick="runBlockChain()">Run Chain</button>
       </div>
+    </div>
+
+    <div class="card">
+      <h3>Free Models Router</h3>
+      <div class="label">15 OpenAI-compatible free providers</div>
+      <div class="label" id="free-model-info">GET /api/free-models/providers</div>
+      <button class="btn" onclick="loadFreeProviders()">Load Providers</button>
+      <div class="input-row" style="margin-top:8px">
+        <select id="free-provider">
+          <option value="">auto</option>
+          <option value="github">GitHub Models</option>
+          <option value="openrouter">OpenRouter Free</option>
+          <option value="groq">Groq</option>
+          <option value="google">Google AI</option>
+          <option value="ollama">Ollama Local</option>
+        </select>
+        <input type="text" id="free-model" placeholder="model" value="llama-3.3-70b-versatile">
+      </div>
+      <input type="text" id="free-prompt" placeholder="Prompt" value="Hello from free router" style="width:100%;margin-top:6px">
+      <button class="btn" onclick="runFreeModel()">Run Free Model</button>
+      <pre id="free-model-output" style="background:#000;color:#0f0;padding:8px;margin-top:6px;font-size:11px;max-height:180px;overflow:auto"></pre>
     </div>
 
     <div class="terminal">
@@ -658,6 +679,39 @@ async function loadPatterns() {
   } catch (e) {
     $('patterns-info').textContent = 'error: ' + e.message;
     appendTerm('[PATTERNS] failed: ' + e.message, 'error');
+  }
+}
+
+async function loadFreeProviders() {
+  try {
+    const res = await api('/api/free-models/providers');
+    const lines = res.providers.map(p => p.name + ' [' + p.id + '] free=' + p.free + ' models=' + p.models.length);
+    $('free-model-info').textContent = 'providers=' + res.total_providers;
+    $('free-model-output').textContent = lines.join('\n');
+    appendTerm('[FREE-MODELS] loaded ' + res.total_providers + ' providers', 'info');
+  } catch (e) {
+    $('free-model-info').textContent = 'error: ' + e.message;
+    appendTerm('[FREE-MODELS] failed: ' + e.message, 'error');
+  }
+}
+
+async function runFreeModel() {
+  try {
+    const provider = $('free-provider').value || '';
+    const model = $('free-model').value || '';
+    const prompt = $('free-prompt').value || 'Hello';
+    const body = {
+      messages: [{role: 'user', content: prompt}],
+      model: model || undefined,
+      provider: provider || undefined
+    };
+    const res = await api('/api/free-models/chat', {method:'POST', body: JSON.stringify(body)});
+    const content = res.result && res.result.choices ? res.result.choices[0].message.content : JSON.stringify(res.result);
+    $('free-model-output').textContent = '[' + res.provider + '] ' + (content || JSON.stringify(res));
+    appendTerm('[FREE-MODEL] provider=' + res.provider + ' model=' + (model || 'auto'), 'info');
+  } catch (e) {
+    $('free-model-output').textContent = 'error: ' + e.message;
+    appendTerm('[FREE-MODEL] failed: ' + e.message, 'error');
   }
 }
 
