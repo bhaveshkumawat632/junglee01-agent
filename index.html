@@ -1,11 +1,183 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Junglee01 Viewer</title>
-    <meta http-equiv="refresh" content="0; url=https://selecting-institute-poems-phrases.trycloudflare.com">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Junglee01 Viewer — Connecting...</title>
+  <meta http-equiv="refresh" content="3; url=https://placing-demonstration-chemical-houses.trycloudflare.com" id="meta-refresh">
+  <style>
+    :root {
+      --bg: #070d0c;
+      --card: #0e1a18;
+      --border: #1a2f2b;
+      --text: #e0f2ef;
+      --muted: #6e8a84;
+      --accent: #00ffcc;
+      --coral: #ff5566;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 36px 28px;
+      max-width: 440px;
+      width: 100%;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    }
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: rgba(0,255,204,0.1);
+      border: 1px solid rgba(0,255,204,0.25);
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+    p {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 24px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .action-btn {
+      display: inline-block;
+      width: 100%;
+      padding: 13px 20px;
+      background: var(--accent);
+      color: #051412;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      border-radius: 10px;
+      transition: opacity 0.2s, transform 0.1s;
+      border: none;
+      cursor: pointer;
+    }
+    .action-btn:active { transform: scale(0.98); }
+    .status-text {
+      margin-top: 18px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+      font-size: 11px;
+      color: var(--muted);
+      word-break: break-all;
+    }
+  </style>
 </head>
-<body style="background:#000; color:#fff; font-family:sans-serif; text-align:center; padding-top:20vh;">
-    <h2>Connecting to Junglee01 Viewer...</h2>
-    <p>If not redirected, <a href="https://selecting-institute-poems-phrases.trycloudflare.com" style="color:#0f0;">click here</a>.</p>
+<body>
+  <div class="card">
+    <div class="badge">Junglee01 Cockpit Gateway</div>
+    <div class="spinner" id="spinner"></div>
+    <h1 id="headline">Connecting to PC...</h1>
+    <p id="subtext">Resolving live secure tunnel address for your personal agent cockpit.</p>
+    <a id="direct-btn" class="action-btn" href="https://placing-demonstration-chemical-houses.trycloudflare.com">Open Junglee Viewer</a>
+    <div class="status-text" id="status-text">Fetching latest tunnel state...</div>
+  </div>
+
+  <script>
+    (function() {
+      const DEFAULT_URL = "https://placing-demonstration-chemical-houses.trycloudflare.com";
+      const RAW_URL = "https://raw.githubusercontent.com/bhaveshkumawat632/junglee01-agent/main/tunnel.json";
+      const API_URL = "https://api.github.com/repos/bhaveshkumawat632/junglee01-agent/contents/tunnel.json";
+      
+      const headline = document.getElementById("headline");
+      const subtext = document.getElementById("subtext");
+      const directBtn = document.getElementById("direct-btn");
+      const statusText = document.getElementById("status-text");
+      const metaRefresh = document.getElementById("meta-refresh");
+
+      function applyUrl(url) {
+        if (!url || !url.startsWith("https://")) return;
+        localStorage.setItem("junglee01_last_tunnel", url);
+        directBtn.href = url;
+        if (metaRefresh) metaRefresh.content = "0; url=" + url;
+        statusText.textContent = "Redirecting to " + url + " ...";
+        headline.textContent = "Ready — Opening Viewer...";
+        setTimeout(function() {
+          window.location.replace(url);
+        }, 150);
+      }
+
+      async function fetchLiveTunnel() {
+        const cacheBuster = "?_t=" + Date.now();
+        // 1. Try Raw GitHub endpoint with cache-busting
+        try {
+          const res = await fetch(RAW_URL + cacheBuster, { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.url) {
+              applyUrl(data.url);
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn("Raw fetch failed:", err);
+        }
+
+        // 2. Try GitHub Contents API
+        try {
+          const res = await fetch(API_URL + cacheBuster, { cache: "no-store" });
+          if (res.ok) {
+            const fileData = await res.json();
+            if (fileData && fileData.content) {
+              const decoded = JSON.parse(atob(fileData.content.replace(/\s/g, "")));
+              if (decoded && decoded.url) {
+                applyUrl(decoded.url);
+                return;
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("API fetch failed:", err);
+        }
+
+        // 3. Fallback to localStorage last known good URL
+        const cached = localStorage.getItem("junglee01_last_tunnel");
+        if (cached) {
+          applyUrl(cached);
+          return;
+        }
+
+        // 4. Default baked URL
+        applyUrl(DEFAULT_URL);
+      }
+
+      fetchLiveTunnel();
+    })();
+  </script>
 </body>
 </html>
