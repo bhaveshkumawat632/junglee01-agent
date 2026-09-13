@@ -105,6 +105,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from fastapi.staticfiles import StaticFiles
+if (PROJECT_DIR / "static").exists():
+    app.mount("/static", StaticFiles(directory=str(PROJECT_DIR / "static")), name="static")
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard_view():
+    index_file = PROJECT_DIR / "index.html"
+    if index_file.exists():
+        return HTMLResponse(index_file.read_text(encoding="utf-8"))
+    raise HTTPException(404, "index.html not found")
+
 # ─── HEALTH ───────────────────────────────────────────────
 @app.get("/api/health")
 async def health():
@@ -206,6 +217,16 @@ async def get_tasks():
     rows = conn.execute("SELECT task_id, task_text, status, score, model, steps, created_at FROM tasks ORDER BY created_at DESC LIMIT 100").fetchall()
     conn.close()
     return JSONResponse({"tasks": [dict(r) for r in rows]})
+
+@app.get("/api/task/{task_id}")
+async def get_task(task_id: str):
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    row = conn.execute("SELECT task_id, task_text, status, score, model, steps, result, created_at, updated_at FROM tasks WHERE task_id = ?", (task_id,)).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(404, "Task not found")
+    return JSONResponse(dict(row))
 
 @app.post("/api/task")
 async def submit_task(request: Request):
@@ -564,18 +585,39 @@ async def telegram_status():
 
 # ─── WEBSOCKET ────────────────────────────────────────────
 @app.websocket("/ws")
+@app.websocket("/ws/")
+@app.websocket("/api/ws")
+@app.websocket("/api/ws/")
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
     active_connections.append(ws)
     try:
+        # Send initial connected status
+        await ws.send_json({"type": "connected", "message": "WebSocket connection established", "active": len(active_connections)})
         while True:
             data = await ws.receive_text()
             # Echo / heartbeat
             await ws.send_json({"type": "pong", "data": data})
     except WebSocketDisconnect:
-        active_connections.remove(ws)
-    except Exception:
-        active_connections.remove(ws)
+        pass
+    except Exception as e:
+        logger.debug(f"WebSocket closed: {e}")
+    finally:
+        if ws in active_connections:
+            active_connections.remove(ws)
+
+@app.get("/ws")
+@app.get("/ws/")
+@app.get("/api/ws")
+@app.get("/api/ws/")
+async def websocket_info():
+    return JSONResponse({
+        "status": "online",
+        "endpoint": "/ws",
+        "protocol": "WebSocket (ws:// or wss://)",
+        "message": "WebSocket server is active. Upgrade connection to ws://.../ws to connect.",
+        "active_connections": len(active_connections)
+    })
 
 async def broadcast(msg: Dict[str, Any]):
     dead = []
@@ -1043,7 +1085,11 @@ async def run_lcel_chain(task_id: str, task_text: str):
 
 # ─── ROOT ────────────────────────────────────────────────
 @app.get("/")
-async def root():
+async def root(request: Request):
+    accept = request.headers.get("accept", "")
+    index_file = PROJECT_DIR / "index.html"
+    if "text/html" in accept and index_file.exists():
+        return HTMLResponse(index_file.read_text(encoding="utf-8"))
     return JSONResponse({
         "name": "Hermes Agent Platform",
         "version": VERSION,

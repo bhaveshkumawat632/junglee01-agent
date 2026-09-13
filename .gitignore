@@ -1,2 +1,9 @@
 backend/server.log
 task_queue.db
+.pytest_cache/
+backend/plan_*
+backend/task_*
+backend/.relay_venv/
+backend/bot_queue/
+backend/__pycache__/
+backend/tests/__pycache__/
