@@ -132,14 +132,36 @@
         }, 150);
       }
 
+      function dataIsUsable(url) {
+        return typeof url === "string" && /^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/i.test(url);
+      }
+
       async function fetchLiveTunnel() {
         const cacheBuster = "?_t=" + Date.now();
-        // 1. Try Raw GitHub endpoint with cache-busting
+
+        // Prefer the GitHub Contents API because Raw/Pages CDNs can lag.
+        try {
+          const res = await fetch(API_URL + cacheBuster, { cache: "no-store" });
+          if (res.ok) {
+            const fileData = await res.json();
+            if (fileData && fileData.content) {
+              const decoded = JSON.parse(atob(fileData.content.replace(/\s/g, "")));
+              if (decoded && dataIsUsable(decoded.url)) {
+                applyUrl(decoded.url);
+                return;
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("GitHub Contents API fetch failed:", err);
+        }
+
+        // Raw GitHub fallback; it may be briefly stale.
         try {
           const res = await fetch(RAW_URL + cacheBuster, { cache: "no-store" });
           if (res.ok) {
             const data = await res.json();
-            if (data && data.url) {
+            if (data && dataIsUsable(data.url)) {
               applyUrl(data.url);
               return;
             }
@@ -148,31 +170,11 @@
           console.warn("Raw fetch failed:", err);
         }
 
-        // 2. Try GitHub Contents API
-        try {
-          const res = await fetch(API_URL + cacheBuster, { cache: "no-store" });
-          if (res.ok) {
-            const fileData = await res.json();
-            if (fileData && fileData.content) {
-              const decoded = JSON.parse(atob(fileData.content.replace(/\s/g, "")));
-              if (decoded && decoded.url) {
-                applyUrl(decoded.url);
-                return;
-              }
-            }
-          }
-        } catch (err) {
-          console.warn("API fetch failed:", err);
-        }
-
-        // 3. Fallback to localStorage last known good URL
         const cached = localStorage.getItem("junglee01_last_tunnel");
-        if (cached) {
+        if (dataIsUsable(cached)) {
           applyUrl(cached);
           return;
         }
-
-        // 4. Default baked URL
         applyUrl(DEFAULT_URL);
       }
 
