@@ -1,0 +1,14 @@
+{
+  "policy_version": 1,
+  "no_billing_details": true,
+  "paid_fallback_allowed": false,
+  "required_capacity_multiple": 4,
+  "languages": ["en", "hi"],
+  "providers": [
+    {"id":"agnes","status":"candidate"},
+    {"id":"kaggle","status":"candidate"},
+    {"id":"gemini_web","status":"candidate"},
+    {"id":"google_flow","status":"candidate"},
+    {"id":"hf_zerogpu","status":"candidate"}
+  ]
+}
