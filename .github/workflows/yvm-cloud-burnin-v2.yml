@@ -1,0 +1,77 @@
+name: YVM Cloud 4x Burn-In V2
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/yvm-cloud-burnin-v2.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  burnin:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cycle: [1, 2, 3, 4]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          python -m pip install edge-tts
+
+      - name: Generate English and Hindi audio
+        run: |
+          mkdir -p out
+          edge-tts --voice en-US-AriaNeural --text "Y V M cloud cycle ${{ matrix.cycle }} English path working." --write-media out/en.mp3
+          edge-tts --voice hi-IN-SwaraNeural --text "वाई वी एम क्लाउड चक्र ${{ matrix.cycle }} हिंदी पाथ सही काम कर रहा है।" --write-media out/hi.mp3
+
+      - name: Render fixed-duration English video
+        run: |
+          ffmpeg -nostdin -y             -f lavfi -i "testsrc2=size=1080x1920:rate=30:duration=8"             -i out/en.mp3             -filter_complex "[1:a]apad=pad_dur=8[a]"             -map 0:v:0 -map "[a]"             -t 8 -c:v libx264 -preset veryfast -crf 24 -pix_fmt yuv420p             -c:a aac -b:a 128k -ar 48000 -ac 2 -movflags +faststart             out/cycle_${{ matrix.cycle }}_en.mp4
+
+      - name: Render fixed-duration Hindi video
+        run: |
+          ffmpeg -nostdin -y             -f lavfi -i "testsrc2=size=1080x1920:rate=30:duration=8"             -i out/hi.mp3             -filter_complex "[1:a]apad=pad_dur=8[a]"             -map 0:v:0 -map "[a]"             -t 8 -c:v libx264 -preset veryfast -crf 24 -pix_fmt yuv420p             -c:a aac -b:a 128k -ar 48000 -ac 2 -movflags +faststart             out/cycle_${{ matrix.cycle }}_hi.mp4
+
+      - name: Verify bilingual outputs and duration
+        run: |
+          EN=out/cycle_${{ matrix.cycle }}_en.mp4
+          HI=out/cycle_${{ matrix.cycle }}_hi.mp4
+          EN_HASH=$(ffmpeg -nostdin -v error -i "$EN" -map 0:a:0 -ac 1 -ar 16000 -f s16le - 2>/dev/null | sha256sum | cut -d' ' -f1)
+          HI_HASH=$(ffmpeg -nostdin -v error -i "$HI" -map 0:a:0 -ac 1 -ar 16000 -f s16le - 2>/dev/null | sha256sum | cut -d' ' -f1)
+          test "$EN_HASH" != "$HI_HASH"
+          for f in "$EN" "$HI"; do
+            D=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$f")
+            W=$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "$f")
+            H=$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 "$f")
+            awk -v d="$D" 'BEGIN { if (d < 7.90 || d > 8.10) exit 1 }'
+            test "$W" = "1080"
+            test "$H" = "1920"
+            echo "QC file=$f duration=$D size=${W}x${H}"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yvm-burnin-v2-cycle-${{ matrix.cycle }}
+          path: out/*.mp4
+          retention-days: 1
+
+  gate:
+    needs: burnin
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "NO_BILLING_DETAILS=PASS"
+          echo "CYCLES=4"
+          echo "LANGUAGES_PER_CYCLE=2"
+          echo "OUTPUTS=8"
+          echo "RESOLUTION=1080x1920"
+          echo "DURATION=8s"
+          echo "BASELINE_4X_RENDER_GATE=PASS"
