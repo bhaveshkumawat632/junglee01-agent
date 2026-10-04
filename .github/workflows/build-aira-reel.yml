@@ -1,0 +1,49 @@
+name: Build Aira Reel 01
+
+on:
+  push:
+    paths:
+      - ".github/workflows/build-aira-reel.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Aira master image
+        run: |
+          mkdir -p media
+          curl -L --fail --retry 3 \
+            "https://cdn.openart.ai/openart-uploads/production/attachment-transfers/742b93f5a84251f3e7772f180b7e23c6fa6fc9730f181889547c4252f703beaf.png" \
+            -o /tmp/aira.png
+
+      - name: Build vertical Instagram Reel
+        run: |
+          ffmpeg -y -loop 1 -i /tmp/aira.png \
+            -f lavfi -i "sine=frequency=98:sample_rate=44100:duration=7" \
+            -f lavfi -i "sine=frequency=196:sample_rate=44100:duration=7" \
+            -filter_complex "[0:v]zoompan=z='1.0+0.055*sin(on*PI/420)':x='iw/2-(iw/zoom/2)+18*sin(on/45)':y='ih/2-(ih/zoom/2)+20*cos(on/55)':d=210:s=1080x1920:fps=30,eq=contrast=1.03:saturation=1.05,format=yuv420p[v];[1:a]volume=0.035[a1];[2:a]volume=0.018[a2];[a1][a2]amix=inputs=2:normalize=0,afade=t=in:st=0:d=0.25,afade=t=out:st=6.5:d=0.5[a]" \
+            -map "[v]" -map "[a]" -t 7 \
+            -c:v libx264 -preset medium -crf 18 -r 30 -movflags +faststart \
+            -c:a aac -b:a 128k -ar 44100 -ac 2 \
+            media/aira_vesha_reel_01.mp4
+
+      - name: QC
+        run: |
+          ffprobe -v error \
+            -show_entries stream=codec_name,width,height:format=duration,size \
+            -of default=noprint_wrappers=1 \
+            media/aira_vesha_reel_01.mp4
+
+      - name: Commit generated Reel
+        run: |
+          git config user.name "Junglee01 Agent"
+          git config user.email "actions@users.noreply.github.com"
+          git add media/aira_vesha_reel_01.mp4
+          git commit -m "feat: add Aira Vesha Reel 01" || exit 0
+          git push
