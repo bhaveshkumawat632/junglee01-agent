@@ -106,3 +106,5 @@ jobs:
           name: yvm-kaggle-ltx-quality
           path: out/kaggle-quality/
           retention-days: 1
+
+# trigger: period-fidelity-2026-10-05
