@@ -1,0 +1,52 @@
+name: YVM Analyze Latest Kaggle Batch
+
+on:
+  push:
+    paths:
+      - ".github/workflows/yvm-analyze-latest-kaggle-batch.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python -m pip install --disable-pip-version-check -q kaggle
+      - name: Download latest completed batch
+        run: |
+          mkdir -p out/analyze
+          kaggle kernels output "$KAGGLE_USERNAME/yvm-ltx-daily-batch" -p out/analyze -o
+      - name: Measure all twelve clips without pass/fail thresholds
+        run: |
+          python - <<'PY'
+          import json, subprocess, pathlib
+          rows=[]
+          for i in range(1,13):
+              p=pathlib.Path(f"out/analyze/yvm_kaggle_scene_{i:02d}.mp4")
+              if not p.exists():
+                  raise SystemExit(f"MISSING={p}")
+              cp=subprocess.run([
+                  "python","yvm-cloud/qc_motion.py",str(p),
+                  "--min-avg-diff","0","--min-span-diff","0","--min-unique-ratio","0"
+              ],capture_output=True,text=True,check=True)
+              data=json.loads(cp.stdout)
+              data["scene"]=i
+              rows.append(data)
+          print(json.dumps(rows,indent=2))
+          pathlib.Path("out/analyze/motion_metrics.json").write_text(json.dumps(rows,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yvm-kaggle-motion-metrics
+          path: out/analyze/motion_metrics.json
+          retention-days: 1
