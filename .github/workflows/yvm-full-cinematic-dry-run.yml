@@ -52,7 +52,8 @@ jobs:
           python yvm-cloud/qc_video.py out/daily/render/final_en.mp4             --min-duration 59.5 --min-width 1000 --min-height 1800             --require-audio --video-codec h264 --audio-codec aac
           python yvm-cloud/qc_video.py out/daily/render/final_hi.mp4             --min-duration 59.5 --min-width 1000 --min-height 1800             --require-audio --video-codec h264 --audio-codec aac
           python yvm-cloud/qc_motion.py out/daily/visual_master.mp4
-          python yvm-cloud/qc_pair.py             --en-video out/daily/render/final_en.mp4             --hi-video out/daily/render/final_hi.mp4             --en-subtitles out/daily/render/subtitles_en.srt             --hi-subtitles out/daily/render/subtitles_hi.srt
+          python yvm-cloud/qc_pair.py             --en-video out/daily/render/final_en.mp4             --hi-video out/daily/render/final_hi.mp4             --en-subtitles out/daily/render/subtitles_en.srt             --hi-subtitles out/daily/render/subtitles_hi.srt \
+            --min-cues 3
           python - <<'PY'
           import json
           r=json.load(open("out/daily/result.json"))
