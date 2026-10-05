@@ -100,3 +100,5 @@ jobs:
           name: yvm-free-provider-readiness
           path: out/
           retention-days: 1
+
+# trigger: secrets-added-2026-10-05
