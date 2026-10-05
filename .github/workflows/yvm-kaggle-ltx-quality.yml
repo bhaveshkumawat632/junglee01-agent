@@ -42,7 +42,12 @@ jobs:
           new='"--height","736",\n        "--width","416",'
           if old not in s:
               raise SystemExit("QUALITY_VARIANT_PATCH_TARGET_MISSING")
-          p.write_text(s.replace(old,new,1))
+          s=s.replace(old,new,1)
+          fps_old='"--frame_rate","24",'
+          fps_new='"--frame_rate","16",'
+          if fps_old not in s:
+              raise SystemExit("QUALITY_FPS_PATCH_TARGET_MISSING")
+          p.write_text(s.replace(fps_old,fps_new,1))
           PY
           python - <<'PY'
           import json, os
@@ -96,7 +101,7 @@ jobs:
           test -f out/kaggle-quality/yvm_kaggle_result.json
           test -f out/kaggle-quality/yvm_kaggle_clip.mp4
           cat out/kaggle-quality/yvm_kaggle_result.json
-          python yvm-cloud/qc_video.py out/kaggle-quality/yvm_kaggle_clip.mp4             --min-duration 3 --min-width 400 --min-height 700
+          python yvm-cloud/qc_video.py out/kaggle-quality/yvm_kaggle_clip.mp4             --min-duration 4.8 --min-width 400 --min-height 700
           python yvm-cloud/qc_motion.py out/kaggle-quality/yvm_kaggle_clip.mp4
           echo "KAGGLE_LTX_416X736_QUALITY=PASS"
 
@@ -107,4 +112,4 @@ jobs:
           path: out/kaggle-quality/
           retention-days: 1
 
-# trigger: safe-grid-416x736-2026-10-05
+# trigger: native-5s-416x736-2026-10-05
