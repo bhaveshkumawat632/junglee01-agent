@@ -82,3 +82,5 @@ jobs:
             out/daily/render/subtitles_en.srt
             out/daily/render/subtitles_hi.srt
           retention-days: 2
+
+# trigger: latest-quality-gates-2026-10-05
