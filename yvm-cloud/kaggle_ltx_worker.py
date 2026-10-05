@@ -34,6 +34,7 @@ def run(cmd, cwd=None):
     subprocess.run([str(x) for x in cmd],cwd=cwd,check=True)
 
 def main():
+    os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
     started=time.time()
     gpu=subprocess.run(["nvidia-smi","--query-gpu=name,memory.total","--format=csv,noheader"],
                        text=True,capture_output=True)
@@ -60,9 +61,10 @@ def main():
         "--prompt",PROMPT,
         "--height","768",
         "--width","448",
-        "--num_frames","121",
+        "--num_frames","97",
         "--frame_rate","30",
         "--seed","632",
+        "--offload_to_cpu",
         "--pipeline_config","configs/ltxv-2b-0.9.6-distilled.yaml",
         "--output_path",str(OUTDIR),
     ],cwd=SRC)
