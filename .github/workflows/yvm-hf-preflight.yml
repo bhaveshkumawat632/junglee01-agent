@@ -18,7 +18,7 @@ jobs:
       matrix:
         space:
           - zai-org/CogVideoX-5B-Space
-          - Lightricks/LTX-Video-Fast
+          - zerogpu-aoti/Wan2.2-14B-Fast
     steps:
       - uses: actions/checkout@v4
       - name: Install client
@@ -33,8 +33,6 @@ jobs:
           space=os.environ["HF_SPACE"]
           print("SPACE=", space)
           c=Client(space, verbose=False)
-          info=c.view_api(all_endpoints=True, print_info=False)
-          print(info)
+          c.view_api(all_endpoints=True, print_info=True)
+          print("ENDPOINTS", sorted(getattr(c, "endpoints", {}).keys()))
           PY
-
-# preflight trigger
