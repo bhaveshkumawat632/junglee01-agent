@@ -34,7 +34,8 @@ jobs:
         run: |
           test -n "$KAGGLE_API_TOKEN"
           test -n "$KAGGLE_USERNAME"
-          kaggle quota
+          kaggle kernels list --mine --page-size 1 >/dev/null
+          echo "KAGGLE_AUTH=PASS"
           python - <<'PY'
           import json
           p=json.load(open("yvm-cloud/provider-policy.json"))
@@ -63,9 +64,11 @@ jobs:
           print("FULL_CINEMATIC_DRY_RUN=PASS")
           PY
 
-      - name: Record remaining free quota
+      - name: Record Kaggle access state
         if: always()
-        run: kaggle quota || true
+        run: |
+          kaggle kernels list --mine --page-size 1 >/dev/null && echo "KAGGLE_ACCESS=PASS" || echo "KAGGLE_ACCESS=CHECK_FAILED"
+          echo "KAGGLE_QUOTA_CLI=UNSUPPORTED"
 
       - uses: actions/upload-artifact@v4
         if: always()
