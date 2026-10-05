@@ -1,0 +1,126 @@
+name: YVM Kaggle LTX 4-Scene Capacity
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "yvm-cloud/kaggle_ltx_capacity_worker.py"
+      - ".github/workflows/yvm-kaggle-ltx-capacity.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yvm-kaggle-gpu
+  cancel-in-progress: false
+
+jobs:
+  capacity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Credential gate
+        id: cred
+        run: |
+          if [ -n "$KAGGLE_API_TOKEN" ] && [ -n "$KAGGLE_USERNAME" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "KAGGLE_CREDENTIALS=CONFIGURED"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "KAGGLE_CREDENTIALS=MISSING"
+            exit 1
+          fi
+
+      - name: Install Kaggle CLI
+        run: |
+          python -m pip install --disable-pip-version-check -q kaggle
+          kaggle --version
+          set +e
+          kaggle quota
+          set -e
+
+      - name: Build private capacity kernel
+        run: |
+          rm -rf /tmp/yvm-kaggle-capacity
+          mkdir -p /tmp/yvm-kaggle-capacity
+          cp yvm-cloud/kaggle_ltx_capacity_worker.py /tmp/yvm-kaggle-capacity/worker.py
+          python - <<'PY'
+          import json, os
+          user=os.environ["KAGGLE_USERNAME"]
+          meta={
+            "id": f"{user}/yvm-ltx-t4-capacity",
+            "title": "YVM LTX T4 4 Scene Capacity",
+            "code_file": "worker.py",
+            "language": "python",
+            "kernel_type": "script",
+            "is_private": True,
+            "enable_gpu": True,
+            "enable_internet": True
+          }
+          open("/tmp/yvm-kaggle-capacity/kernel-metadata.json","w").write(json.dumps(meta,indent=2))
+          PY
+
+      - name: Push capacity kernel to Kaggle T4x2
+        run: |
+          kaggle kernels push             -p /tmp/yvm-kaggle-capacity             --timeout 3600             --accelerator NvidiaTeslaT4
+
+      - name: Wait for Kaggle completion
+        run: |
+          HANDLE="$KAGGLE_USERNAME/yvm-ltx-t4-capacity"
+          mkdir -p out/kaggle-capacity
+          for i in $(seq 1 120); do
+            STATUS="$(kaggle kernels status "$HANDLE" 2>&1 || true)"
+            echo "$STATUS"
+            LOW="$(printf '%s' "$STATUS" | tr '[:upper:]' '[:lower:]')"
+            if printf '%s' "$LOW" | grep -q 'complete'; then
+              echo "KAGGLE_CAPACITY_RUN=COMPLETE"
+              break
+            fi
+            if printf '%s' "$LOW" | grep -Eq 'error|failed|cancel'; then
+              kaggle kernels logs "$HANDLE" > out/kaggle-capacity/logs.txt 2>&1 || true
+              echo "KAGGLE_CAPACITY_RUN=FAILED"
+              exit 1
+            fi
+            sleep 30
+            if [ "$i" = 120 ]; then
+              kaggle kernels logs "$HANDLE" > out/kaggle-capacity/logs.txt 2>&1 || true
+              echo "KAGGLE_CAPACITY_RUN=TIMEOUT"
+              exit 1
+            fi
+          done
+
+      - name: Install FFmpeg for QC
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+
+      - name: Download and verify four real motion scenes
+        run: |
+          HANDLE="$KAGGLE_USERNAME/yvm-ltx-t4-capacity"
+          kaggle kernels output "$HANDLE" -p out/kaggle-capacity -o
+          test -f out/kaggle-capacity/yvm_kaggle_capacity_result.json
+          cat out/kaggle-capacity/yvm_kaggle_capacity_result.json
+
+          for n in 01 02 03 04; do
+            f="out/kaggle-capacity/yvm_kaggle_scene_${n}.mp4"
+            test -f "$f"
+            python yvm-cloud/qc_video.py "$f"               --min-duration 3 --min-width 300 --min-height 550
+            python yvm-cloud/qc_motion.py "$f"
+          done
+
+          UNIQUE="$(sha256sum out/kaggle-capacity/yvm_kaggle_scene_*.mp4 | awk '{print $1}' | sort -u | wc -l)"
+          echo "UNIQUE_SCENE_FILES=$UNIQUE"
+          test "$UNIQUE" -eq 4
+          echo "KAGGLE_LTX_4_SCENE_CAPACITY=PASS"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: yvm-kaggle-ltx-capacity
+          path: out/kaggle-capacity/
+          retention-days: 1
