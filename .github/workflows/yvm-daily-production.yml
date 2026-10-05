@@ -31,7 +31,7 @@ jobs:
       - name: Install
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg fonts-noto-core
           python -m pip install --disable-pip-version-check -r yvm-cloud/requirements.txt
 
       - name: Produce English and Hindi Shorts
@@ -53,6 +53,8 @@ jobs:
             out/daily/assets/attribution.json
             out/daily/render/final_en.mp4
             out/daily/render/final_hi.mp4
+            out/daily/render/subtitles_en.srt
+            out/daily/render/subtitles_hi.srt
           retention-days: 2
 
       - name: Require YouTube OAuth before public upload
