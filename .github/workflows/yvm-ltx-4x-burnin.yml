@@ -1,0 +1,48 @@
+name: YVM LTX ZeroGPU 4x Burn-In
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/yvm-ltx-4x-burnin.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        cycle: [1, 2, 3, 4]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          python -m pip install --disable-pip-version-check "gradio_client>=1.3" requests
+      - name: Generate independent portrait clip
+        run: |
+          mkdir -p out
+          python yvm-cloud/ltx_zerogpu.py             --prompt "1990s Wall Street trading floor, cinematic documentary realism, human traders at CRT monitors, dynamic handheld camera movement, authentic office lighting, natural faces and anatomy, no text overlays, scene variant ${{ matrix.cycle }}"             --output "out/ltx_cycle_${{ matrix.cycle }}.mp4"             --duration 5             --seed "${{ 1986 + matrix.cycle }}"
+      - name: QC
+        run: |
+          python yvm-cloud/qc_video.py "out/ltx_cycle_${{ matrix.cycle }}.mp4" --min-duration 4 --min-width 700 --min-height 1200
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ltx-4x-cycle-${{ matrix.cycle }}
+          path: "out/ltx_cycle_${{ matrix.cycle }}.mp4"
+          retention-days: 1
+
+  gate:
+    needs: generate
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "LTX_ZERO_GPU_4X_GENERATION=PASS"
+          echo "CYCLES=4"
+          echo "NO_CARD=YES"
