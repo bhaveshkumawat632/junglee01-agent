@@ -21,12 +21,13 @@ FINAL=WORK/"yvm_kaggle_clip.mp4"
 
 PROMPT=os.getenv(
     "YVM_PROMPT",
-    "A cinematic documentary shot on a 1990s Wall Street trading floor. "
-    "Adult professional traders move quickly between desks filled with CRT monitors, "
-    "phones and printed market sheets. The camera slowly pushes forward through the "
-    "busy room while people gesture and exchange information. Authentic period office "
-    "lighting, realistic human motion, financial newsroom atmosphere, no logos, "
-    "no readable text, no watermark, vertical composition."
+    "1992 Wall Street trading floor documentary footage, crowded financial office, "
+    "adult professional traders in dark suits and suspenders moving urgently between desks, "
+    "bulky beige CRT cathode-ray-tube monitors with curved glass, corded landline telephones, "
+    "paper ticker sheets and printed market reports, authentic early-1990s fluorescent office lighting, "
+    "slow forward camera push with realistic human motion, subtle 35mm film texture, "
+    "no laptops, no flat-panel LCD screens, no smartphones, no modern LED office design, "
+    "no logos, no readable text, no watermark, vertical composition."
 )
 
 def run(cmd, cwd=None):
