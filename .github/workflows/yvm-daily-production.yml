@@ -22,9 +22,11 @@ jobs:
   produce:
     if: ${{ github.event_name == 'workflow_dispatch' || vars.YVM_PRODUCTION_ENABLED == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     env:
       AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
     steps:
       - uses: actions/checkout@v4
 
