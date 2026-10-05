@@ -1,9 +1,40 @@
 #!/usr/bin/env python3
-import argparse, json, requests
+import argparse, json, os, subprocess, time
 from pathlib import Path
+import requests
 from gradio_client import Client
 
-SPACE="RioShiina/LTX-2.5"
+SPACE=os.getenv("HF_LTX_SPACE","RioShiina/LTX-2.5")
+
+def media_ok(path):
+    if not path.exists() or path.stat().st_size < 10000:
+        return False
+    p=subprocess.run(
+        ["ffprobe","-v","error","-select_streams","v:0","-show_entries","stream=codec_name","-of","csv=p=0",str(path)],
+        capture_output=True,text=True
+    )
+    return p.returncode==0 and bool(p.stdout.strip())
+
+def download_video(url,out):
+    last=None
+    for attempt in range(1,5):
+        try:
+            with requests.get(url,stream=True,timeout=180,headers={"User-Agent":"Mozilla/5.0"}) as r:
+                r.raise_for_status()
+                ctype=r.headers.get("content-type","")
+                with out.open("wb") as fh:
+                    for chunk in r.iter_content(1024*1024):
+                        if chunk: fh.write(chunk)
+                print(f"download attempt={attempt} type={ctype} bytes={out.stat().st_size}")
+            if media_ok(out):
+                return
+            last=RuntimeError("downloaded object is not a valid video")
+        except Exception as e:
+            last=e
+        try: out.unlink()
+        except FileNotFoundError: pass
+        time.sleep(3*attempt)
+    raise RuntimeError(f"video download failed after retries: {last}")
 
 def main():
     ap=argparse.ArgumentParser()
@@ -35,17 +66,16 @@ def main():
 
     c=Client(SPACE,verbose=False)
     result=c.predict(json.dumps(params),api_name="/run")
+    print("task_id=",result.get("task_id"),"status=",result.get("status"))
     if result.get("status")!="completed":
         raise RuntimeError(json.dumps(result))
     urls=(result.get("result") or {}).get("videos") or []
     if not urls:
         raise RuntimeError("LTX returned no video URL")
+    print("video_url=",urls[0])
     out=Path(a.output); out.parent.mkdir(parents=True,exist_ok=True)
-    with requests.get(urls[0],stream=True,timeout=180) as r:
-        r.raise_for_status()
-        with out.open("wb") as f:
-            for chunk in r.iter_content(1024*1024):
-                if chunk: f.write(chunk)
+    download_video(urls[0],out)
     print(out)
+
 if __name__=="__main__":
     main()
