@@ -33,6 +33,13 @@ def main():
     except Exception as e:
         errors.append(f"hf_ltx_zerogpu:{e}")
 
+    try:
+        run([sys.executable,str(HERE/"deeprat_ltx.py"),"--prompt",a.prompt,"--output",str(out),"--duration",str(min(a.duration,3.0)),"--seed",str(a.seed if a.seed >= 0 else 42)])
+        print("PROVIDER=hf_deeprat_zerogpu")
+        return
+    except Exception as e:
+        errors.append(f"hf_deeprat_zerogpu:{e}")
+
     raise SystemExit("All configured no-card providers failed: "+" | ".join(errors))
 
 if __name__=="__main__":
