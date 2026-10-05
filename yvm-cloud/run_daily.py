@@ -56,11 +56,9 @@ def main():
     prompts=prompts[:a.scenes]
 
     # Guaranteed no-card visual baseline:
-    # keyless AI images first, then freely licensed Commons only for missing scenes.
-    try:
-        run([sys.executable,HERE/"pollinations_images.py","--plan",plan_path,"--out-dir",assets,"--count",str(a.scenes)])
-    except Exception as e:
-        print(f"keyless AI image lane degraded: {e}",file=sys.stderr)
+    # licensed Commons assets first, with a procedural local fallback for missing scenes.
+    # The legacy keyless Pollinations image endpoint began returning HTTP 402 and is
+    # intentionally disabled rather than silently moving to a paid/authenticated path.
     run([sys.executable,HERE/"commons_assets.py","--plan",plan_path,"--out-dir",assets,"--count",str(a.scenes)])
     run([sys.executable,HERE/"images_to_clips.py","--assets",assets,"--out-dir",clips,"--duration",str(a.clip_duration),"--count",str(a.scenes)])
 
