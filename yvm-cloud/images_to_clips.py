@@ -15,15 +15,53 @@ def compose(src,dst):
     canvas.save(dst,quality=92)
 
 def fallback_card(dst,idx):
-    im=Image.new("RGB",(1080,1920),(20,20,24))
+    # Deterministic text-free documentary/data visual used only when every
+    # external visual source is unavailable. It avoids a blank placeholder.
+    im=Image.new("RGB",(1080,1920),(14,18,26))
     d=ImageDraw.Draw(im)
-    for y in range(0,1920,120):
-        shade=20+int(25*y/1920)
-        d.rectangle((0,y,1080,y+120),fill=(shade,shade,shade+6))
-    d.ellipse((300,650,780,1130),outline=(210,210,220),width=8)
-    d.line((360,960,720,960),fill=(210,210,220),width=8)
-    d.line((540,780,540,1140),fill=(210,210,220),width=8)
-    im.save(dst,quality=90)
+
+    # Vertical cinematic gradient.
+    for y in range(1920):
+        t=y/1919
+        r=int(14+22*t); g=int(18+26*t); b=int(26+34*t)
+        d.line((0,y,1080,y),fill=(r,g,b))
+
+    # Soft "monitor" panels.
+    panels=[
+        (90,260,490,720),(590,210,990,670),
+        (120,820,520,1260),(570,790,970,1230)
+    ]
+    for j,(x1,y1,x2,y2) in enumerate(panels):
+        base=38+((idx*11+j*17)%28)
+        d.rounded_rectangle((x1,y1,x2,y2),radius=28,
+                            fill=(base,base+8,base+14),
+                            outline=(100,120,135),width=4)
+        # Grid.
+        for gx in range(x1+40,x2-20,70):
+            d.line((gx,y1+35,gx,y2-35),fill=(55,70,82),width=2)
+        for gy in range(y1+55,y2-25,65):
+            d.line((x1+25,gy,x2-25,gy),fill=(55,70,82),width=2)
+
+        # Deterministic chart-like line with no readable text.
+        pts=[]
+        span=max(1,x2-x1-70)
+        for k in range(8):
+            x=x1+35+int(span*k/7)
+            y=y2-70-((idx*53+j*71+k*47+k*k*13)%(y2-y1-150))
+            pts.append((x,y))
+        d.line(pts,fill=(185,205,218),width=7)
+        for x,y in pts:
+            d.ellipse((x-8,y-8,x+8,y+8),fill=(220,225,230))
+
+    # Foreground desk and practical-light shapes.
+    d.polygon([(0,1510),(1080,1420),(1080,1920),(0,1920)],fill=(24,22,22))
+    d.ellipse((760,1320,1020,1580),fill=(95,78,58))
+    d.ellipse((790,1350,990,1550),fill=(190,154,92))
+    d.rectangle((110,1470,520,1510),fill=(76,68,58))
+
+    # Slight blur for photographic softness.
+    im=im.filter(ImageFilter.GaussianBlur(0.7))
+    im.save(dst,quality=92)
 
 def make_clip(image,out,duration,idx):
     with tempfile.NamedTemporaryFile(suffix=".jpg",delete=False) as t:
