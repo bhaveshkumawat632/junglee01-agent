@@ -1,0 +1,65 @@
+name: YVM LTX ZeroGPU Generate Test
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/yvm-ltx-generate-test.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          python -m pip install --disable-pip-version-check "gradio_client>=1.3" requests
+      - name: Generate 5s portrait clip on public ZeroGPU
+        run: |
+          mkdir -p out
+          python - <<'PY'
+          import json, os, requests
+          from gradio_client import Client
+          c=Client("RioShiina/LTX-2.5", verbose=False)
+          params={
+            "task_type":"t2v",
+            "prompt":"1990s Wall Street trading floor, realistic human traders, glowing CRT monitors, fast ticker screens, cinematic handheld camera push-in, documentary realism, natural faces, dramatic but authentic office lighting, no text overlays",
+            "negative_prompt":"cartoon, anime, game, distorted hands, deformed faces, warped anatomy, text, watermark, logo",
+            "resolution":"768p",
+            "aspect_ratio":"9:16 (Portrait)",
+            "width":768,
+            "height":1344,
+            "duration":5.0,
+            "fps":"24fps",
+            "seed":1986,
+            "use_spatial_upscaler":False,
+            "use_temporal_upscaler":False,
+            "zero_gpu_duration":60
+          }
+          result=c.predict(json.dumps(params), api_name="/run")
+          print("RESULT", result)
+          if result.get("status")!="completed":
+            raise SystemExit("Generation did not complete: "+json.dumps(result))
+          urls=(result.get("result") or {}).get("videos") or []
+          if not urls:
+            raise SystemExit("No video URL in result")
+          url=urls[0]
+          print("URL",url)
+          rr=requests.get(url,timeout=180)
+          rr.raise_for_status()
+          open("out/ltx25_test.mp4","wb").write(rr.content)
+          PY
+      - name: QC
+        run: |
+          python yvm-cloud/qc_video.py out/ltx25_test.mp4 --min-duration 4 --min-width 700 --min-height 1200
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ltx25-no-card-video-test
+          path: out/ltx25_test.mp4
+          retention-days: 1
