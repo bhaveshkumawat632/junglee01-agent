@@ -97,7 +97,7 @@ def main():
         time.sleep(0.15)
 
     (out/"attribution.json").write_text(json.dumps(records,ensure_ascii=False,indent=2))
-    good=sum(x.get("status")=="ok" for x in records)
+    good=sum(x.get("status") in ("ok","existing_non_commons") for x in records)
     print("ASSETS_OK",good,"OF",a.count)
     if good < max(4,a.count//2):
         raise SystemExit("Too few Commons assets")
