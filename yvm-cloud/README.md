@@ -24,6 +24,8 @@ It does not modify the existing local YVM scripts or services.
 - Keyless Pollinations image generation
 - Wikimedia Commons licensed-media fallback
 - One public LTX-2.5 ZeroGPU video generation with valid H.264/AAC output
+- Keyless Wan 2.1 base text-to-video generation with real vertical MP4 QC PASS
+- Resumable YouTube uploader dry-run PASS
 - YouTube OAuth uploader code is ready, but production upload is intentionally disabled
 
 ### DEGRADED / RESERVE ONLY
@@ -46,8 +48,10 @@ It does not modify the existing local YVM scripts or services.
    - CPU motion rendering in GitHub Actions.
 4. Video enhancement:
    - Agnes when configured,
-   - legitimate small ZeroGPU bonus where quota allows,
-   - baseline is retained if video enhancement fails.
+   - validated keyless Wan 2.1 motion lane,
+   - Wan 2.2 image-to-video when its live gate passes,
+   - legitimate LTX/other ZeroGPU reserve only where quota allows,
+   - baseline is retained if every video enhancement fails.
 5. Stitch and normalize to 1080x1920 H.264.
 6. Render separate English and Hindi AAC voice tracks.
 7. QC duration, resolution, codecs and audio.
@@ -62,7 +66,7 @@ The 4x infrastructure/render gate already passed. Optional AI video providers ne
 
 `.github/workflows/yvm-daily-production.yml` exists but has no cron schedule yet.
 YouTube posting is gated behind `YVM_PRODUCTION_ENABLED=true`.
-The intended schedule after final authorization is 21:00 IST (15:30 UTC).
+The intended schedule after final authorization is 21:07 IST (15:37 UTC).
 
 The remaining external authorization for publishing is YouTube OAuth:
 - `YOUTUBE_CLIENT_ID`
