@@ -1,11 +1,14 @@
 {
   "schema_version": 1,
-  "measured_at_utc": "2026-10-05T00:56:00Z",
+  "measured_at_utc": "2026-10-05T00:59:30Z",
   "baseline": {
     "four_complete_daily_cycles": "pass",
     "cycles": 4,
     "final_outputs": 8,
-    "languages": ["en", "hi"],
+    "languages": [
+      "en",
+      "hi"
+    ],
     "resolution": "1080x1920",
     "duration_seconds": 60,
     "no_card": true
@@ -29,14 +32,18 @@
         "steps": 6,
         "output_duration_seconds": 1.8125,
         "reported_gpu_seconds": 12.6
-      }
+      },
+      "same_runner_sequential_capacity": "quota_limited_after_3_successful_runs",
+      "observed_successful_low_budget_clips_before_run_limit": 3,
+      "production_weight": "max_2_primary_bonus_clips_per_daily_run"
     },
     "hf_wan22_i2v": {
       "live_generation": "pass",
       "resolution": "480x832",
       "steps": 4,
       "output_duration_seconds": 2.0625,
-      "reference_image_required": true
+      "reference_image_required": true,
+      "production_weight": "third-run-rescue_when_reference_available"
     },
     "hf_ltx_zerogpu": {
       "live_generation": "pass",
@@ -58,5 +65,6 @@
     "kaggle": "needs_free_account_credential",
     "gemini_web": "needs_authenticated_web_session",
     "google_flow": "needs_authenticated_browser_session"
-  }
+  },
+  "policy_note": "4x requirement is satisfied by the guaranteed baseline pool. Anonymous ZeroGPU motion lanes are quality bonuses and are deliberately kept below observed quota."
 }
