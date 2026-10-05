@@ -1,0 +1,50 @@
+name: YVM Cloud End-to-End No-Card Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/yvm-cloud-e2e-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          python -m pip install --disable-pip-version-check -r yvm-cloud/requirements.txt
+      - name: Run complete card-free pipeline
+        run: |
+          python yvm-cloud/run_daily.py             --workdir out/e2e             --scenes 12             --clip-duration 5             --final-duration 60             --free-video-bonus 0
+      - name: Final QC receipt
+        run: |
+          python yvm-cloud/qc_video.py out/e2e/render/final_en.mp4 --min-duration 59.5 --min-width 1000 --min-height 1800 --require-audio
+          python yvm-cloud/qc_video.py out/e2e/render/final_hi.mp4 --min-duration 59.5 --min-width 1000 --min-height 1800 --require-audio
+          python - <<'PY'
+          import json
+          d=json.load(open("out/e2e/result.json"))
+          assert d["payment_card_used"] is False
+          assert d["status"]=="READY_FOR_UPLOAD"
+          print("E2E_STATUS=PASS")
+          print("PLANNER="+str(d["planner"]))
+          print("TOPIC="+str(d["topic"]))
+          print("SCENES="+str(d["scene_count"]))
+          print("AI_VIDEO_UPGRADES="+str(d["ai_video_upgrades"]))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yvm-e2e-no-card
+          path: |
+            out/e2e/result.json
+            out/e2e/plan.json
+            out/e2e/assets/attribution.json
+            out/e2e/render/final_en.mp4
+            out/e2e/render/final_hi.mp4
+          retention-days: 1
