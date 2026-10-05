@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: yvm-kaggle-gpu
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   capacity:
@@ -54,7 +54,7 @@ jobs:
           user=os.environ["KAGGLE_USERNAME"]
           meta={
             "id": f"{user}/yvm-ltx-t4-capacity",
-            "title": "YVM LTX T4 4 Scene Capacity",
+            "title": "YVM LTX T4 Capacity",
             "code_file": "worker.py",
             "language": "python",
             "kernel_type": "script",
@@ -81,7 +81,7 @@ jobs:
               echo "KAGGLE_CAPACITY_RUN=COMPLETE"
               break
             fi
-            if printf '%s' "$LOW" | grep -Eq 'error|failed|cancel'; then
+            if printf '%s' "$LOW" | grep -Eq 'error|failed|cancel|permission|denied|forbidden|not found|cannot access|could not find'; then
               kaggle kernels logs "$HANDLE" > out/kaggle-capacity/logs.txt 2>&1 || true
               echo "KAGGLE_CAPACITY_RUN=FAILED"
               exit 1
