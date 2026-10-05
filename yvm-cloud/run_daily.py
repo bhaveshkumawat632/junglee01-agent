@@ -172,6 +172,8 @@ def main():
         "--hi-script",hi,
         "--out-dir",render_dir,
         "--duration",str(a.final_duration),
+        "--min-speech-seconds",str(max(5,a.final_duration-10)),
+        "--max-speech-seconds",str(a.final_duration+1.5),
     ])
 
     for name in ("final_en.mp4","final_hi.mp4"):
