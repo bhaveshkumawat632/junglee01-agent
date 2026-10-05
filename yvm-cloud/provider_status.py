@@ -6,6 +6,7 @@ ROOT=Path(__file__).resolve().parent
 CONFIG=json.loads((ROOT/"config.json").read_text())
 
 checks={
+    "vidu": bool(os.getenv("VIDU_TOKEN")),
     "agnes": bool(os.getenv("AGNES_API_KEY")),
     "kaggle": bool(os.getenv("KAGGLE_API_TOKEN") or (os.getenv("KAGGLE_USERNAME") and os.getenv("KAGGLE_KEY"))),
     "gemini_web": bool(os.getenv("GEMINI_WEB_BASE_URL") or os.getenv("GEMINI_WEB_COOKIES") or os.getenv("GEMINI_WEB_COOKIE")),
