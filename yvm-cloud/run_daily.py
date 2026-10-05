@@ -64,37 +64,82 @@ def main():
     run([sys.executable,HERE/"procedural_assets.py","--plan",plan_path,"--out-dir",assets,"--count",str(a.scenes)])
     run([sys.executable,HERE/"images_to_clips.py","--assets",assets,"--out-dir",clips,"--duration",str(a.clip_duration),"--count",str(a.scenes)])
 
-    # Enhancement lane. With Agnes configured, upgrade every scene.
-    # Without Agnes, use only a small legitimate ZeroGPU bonus and keep the Commons baseline if quota is unavailable.
-    upgrade_count=a.scenes if os.getenv("AGNES_API_KEY") else min(a.free_video_bonus,a.scenes)
+    # Main real-motion lane: submit every scene to Kaggle in one dual-T4 batch.
+    # If Kaggle is unavailable, retain the baseline locally and try only legitimate
+    # free reserve lanes. Production still fails closed below if too few real
+    # AI-motion scenes were produced.
     upgraded=0
-    for i in range(1,upgrade_count+1):
-        dest=clips/f"scene_{i:02d}.mp4"
-        tmp=clips/f"scene_{i:02d}.ai.mp4"
+    motion_providers=[]
+    if os.getenv("KAGGLE_API_TOKEN") and os.getenv("KAGGLE_USERNAME"):
         try:
-            ref=None
-            for ext in (".jpg",".jpeg",".png",".webp"):
-                candidate=assets/f"scene_{i:02d}{ext}"
-                if candidate.exists():
-                    ref=candidate
-                    break
-            cmd=[
-                sys.executable,HERE/"failover_generate.py",
-                "--prompt",prompts[i-1],
-                "--output",tmp,
+            run([
+                sys.executable,HERE/"kaggle_batch_generate.py",
+                "--plan",plan_path,
+                "--out-dir",clips,
+                "--count",str(a.scenes),
                 "--duration",str(a.clip_duration),
-                "--seed",str(1000+i),
-            ]
-            if ref is not None:
-                cmd += ["--reference-image",ref]
-            run(cmd)
-            run([sys.executable,HERE/"qc_video.py",tmp,"--min-duration","2","--min-width","400","--min-height","700"])
-            tmp.replace(dest)
-            upgraded+=1
+                "--timeout-minutes","80",
+            ])
+            staged=[]
+            for i in range(1,a.scenes+1):
+                tmp=clips/f"scene_{i:02d}.ai.mp4"
+                dest=clips/f"scene_{i:02d}.mp4"
+                if not tmp.exists():
+                    raise RuntimeError(f"Kaggle batch missing scene {i}")
+                run([
+                    sys.executable,HERE/"qc_video.py",tmp,
+                    "--min-duration",str(max(2,a.clip_duration-0.2)),
+                    "--min-width","300","--min-height","550",
+                    "--video-codec","h264"
+                ])
+                run([sys.executable,HERE/"qc_motion.py",tmp])
+                staged.append((tmp,dest))
+            for tmp,dest in staged:
+                tmp.replace(dest)
+            upgraded=a.scenes
+            motion_providers.append("kaggle_t4x2_ltx_batch")
         except Exception as e:
-            print(f"AI upgrade scene {i} skipped: {e}",file=sys.stderr)
-            tmp.unlink(missing_ok=True)
-        time.sleep(1)
+            print(f"Kaggle batch failed; trying reserve lanes: {e}",file=sys.stderr)
+            for p in clips.glob("scene_*.ai.mp4"):
+                p.unlink(missing_ok=True)
+
+    # Reserve enhancement lanes. With Agnes configured, attempt every missing
+    # scene. Otherwise spend only the small legitimate ZeroGPU bonus.
+    if upgraded < a.scenes:
+        upgrade_count=a.scenes if os.getenv("AGNES_API_KEY") else min(a.free_video_bonus,a.scenes)
+        for i in range(1,upgrade_count+1):
+            dest=clips/f"scene_{i:02d}.mp4"
+            tmp=clips/f"scene_{i:02d}.ai.mp4"
+            try:
+                ref=None
+                for ext in (".jpg",".jpeg",".png",".webp"):
+                    candidate=assets/f"scene_{i:02d}{ext}"
+                    if candidate.exists():
+                        ref=candidate
+                        break
+                cmd=[
+                    sys.executable,HERE/"failover_generate.py",
+                    "--prompt",prompts[i-1],
+                    "--output",tmp,
+                    "--duration",str(a.clip_duration),
+                    "--seed",str(1000+i),
+                ]
+                if ref is not None:
+                    cmd += ["--reference-image",ref]
+                run(cmd)
+                run([
+                    sys.executable,HERE/"qc_video.py",tmp,
+                    "--min-duration","2","--min-width","400","--min-height","700"
+                ])
+                run([sys.executable,HERE/"qc_motion.py",tmp])
+                tmp.replace(dest)
+                upgraded+=1
+            except Exception as e:
+                print(f"AI upgrade scene {i} skipped: {e}",file=sys.stderr)
+                tmp.unlink(missing_ok=True)
+            time.sleep(1)
+        if upgraded:
+            motion_providers.append("reserve_free_motion")
 
     if upgraded < a.min_ai_motion_scenes:
         raise SystemExit(
@@ -161,6 +206,7 @@ def main():
         "final_hi":str(render_dir/"final_hi.mp4"),
         "scene_count":len(ordered),
         "ai_video_upgrades":upgraded,
+        "motion_providers":motion_providers,
         "minimum_ai_motion_scenes_required":a.min_ai_motion_scenes,
         "subtitles_en":str(render_dir/"subtitles_en.srt"),
         "subtitles_hi":str(render_dir/"subtitles_hi.srt"),
