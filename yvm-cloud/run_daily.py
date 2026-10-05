@@ -48,6 +48,7 @@ def main():
     if a.topic:
         cmd += ["--topic",a.topic]
     run(cmd)
+    run([sys.executable,HERE/"qc_plan.py",plan_path,"--min-scenes",str(min(8,a.scenes))])
     plan=json.loads(plan_path.read_text())
     prompts=list(plan["scene_prompts"])
     if not prompts:
