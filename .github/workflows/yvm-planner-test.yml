@@ -1,0 +1,39 @@
+name: YVM Daily Planner No-Key Test
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/yvm-planner-test.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --disable-pip-version-check requests
+      - name: Build bilingual daily plan
+        run: python yvm-cloud/daily_plan.py --output out/plan.json
+      - name: Validate plan
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open("out/plan.json"))
+          assert len(d["scene_prompts"]) >= 8
+          assert len(d["script_en"]) > 250
+          assert len(d["script_hi"]) > 200
+          print("PLANNER=", d["planner"])
+          print("TOPIC=", d["topic"])
+          print("EN_TITLE=", d["title_en"])
+          print("HI_TITLE=", d["title_hi"])
+          print("SCENES=", len(d["scene_prompts"]))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yvm-daily-plan-test
+          path: out/plan.json
+          retention-days: 1
