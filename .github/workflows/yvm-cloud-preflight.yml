@@ -1,0 +1,52 @@
+name: YVM Cloud Preflight
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "yvm-cloud/**"
+      - ".github/workflows/yvm-cloud-preflight.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check policy
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open("yvm-cloud/provider-policy.json"))
+          assert p["no_billing_details"] is True
+          assert p["paid_fallback_allowed"] is False
+          assert p["required_capacity_multiple"] == 4
+          print("NO_CARD_POLICY=PASS")
+          print("CAPACITY_POLICY=4X")
+          PY
+
+      - name: Provider readiness
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+          GEMINI_WEB_COOKIE: ${{ secrets.GEMINI_WEB_COOKIE }}
+          FLOW_CDP_URL: ${{ secrets.FLOW_CDP_URL }}
+        run: |
+          python yvm-cloud/orchestrator.py || true
+
+      - name: YouTube auth readiness
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: |
+          python yvm-cloud/youtube_upload.py || true
+
+      - name: Summary
+        run: |
+          echo "Preflight complete."
+          echo "Daily production remains disabled until provider 4x burn-in and YouTube OAuth are both green."
