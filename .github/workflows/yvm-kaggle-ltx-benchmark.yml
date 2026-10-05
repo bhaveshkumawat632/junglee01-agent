@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: yvm-kaggle-ltx-benchmark
-  cancel-in-progress: true
+  group: yvm-kaggle-gpu
+  cancel-in-progress: false
 
 jobs:
   benchmark:
@@ -110,7 +110,6 @@ jobs:
       - name: Download and verify Kaggle output
         if: steps.cred.outputs.ready == 'true'
         run: |
-          sudo apt-get update && sudo apt-get install -y ffmpeg
           HANDLE="$KAGGLE_USERNAME/yvm-ltx-t4-benchmark"
           kaggle kernels output "$HANDLE" -p out/kaggle -o
           test -f out/kaggle/yvm_kaggle_result.json
@@ -118,6 +117,7 @@ jobs:
           cat out/kaggle/yvm_kaggle_result.json
           python yvm-cloud/qc_video.py out/kaggle/yvm_kaggle_clip.mp4 \
             --min-duration 3 --min-width 300 --min-height 550
+          python yvm-cloud/qc_motion.py out/kaggle/yvm_kaggle_clip.mp4
           # Raw generator benchmark only. Final production render/QC remains 1080x1920.
           echo "KAGGLE_LTX_T4_BENCHMARK=PASS"
 
@@ -128,4 +128,4 @@ jobs:
           path: out/
           retention-days: 1
 
-# trigger: ffprobe-qc-fix-2026-10-05
+# trigger: motion-qc-2026-10-05
