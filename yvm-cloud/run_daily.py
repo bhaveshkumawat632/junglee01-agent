@@ -151,6 +151,7 @@ def main():
     for p in ordered:
         if not p.exists():
             raise SystemExit(f"Missing baseline scene: {p}")
+    run([sys.executable,HERE/"qc_scene_diversity.py",*ordered])
 
     visual=wd/"visual_master.mp4"
     run([sys.executable,HERE/"stitch.py","--output",visual,*ordered])
