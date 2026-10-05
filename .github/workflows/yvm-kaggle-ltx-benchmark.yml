@@ -1,0 +1,115 @@
+name: YVM Kaggle LTX T4 Benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/yvm-kaggle-ltx-benchmark.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Credential gate
+        id: cred
+        run: |
+          if [ -n "$KAGGLE_API_TOKEN" ] && [ -n "$KAGGLE_USERNAME" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "KAGGLE_CREDENTIALS=CONFIGURED"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "KAGGLE_CREDENTIALS=MISSING"
+          fi
+
+      - name: Install Kaggle CLI
+        if: steps.cred.outputs.ready == 'true'
+        run: |
+          python -m pip install --disable-pip-version-check -q kaggle
+          kaggle --version
+
+      - name: Verify free GPU quota visibility
+        if: steps.cred.outputs.ready == 'true'
+        run: |
+          set +e
+          kaggle quota
+          set -e
+
+      - name: Build private benchmark kernel
+        if: steps.cred.outputs.ready == 'true'
+        run: |
+          rm -rf /tmp/yvm-kaggle
+          mkdir -p /tmp/yvm-kaggle
+          cp yvm-cloud/kaggle_ltx_worker.py /tmp/yvm-kaggle/worker.py
+          python - <<'PY'
+          import json, os
+          user=os.environ["KAGGLE_USERNAME"]
+          meta={
+            "id": f"{user}/yvm-ltx-t4-benchmark",
+            "title": "YVM LTX T4 Benchmark",
+            "code_file": "worker.py",
+            "language": "python",
+            "kernel_type": "script",
+            "is_private": True,
+            "enable_gpu": True,
+            "enable_internet": True
+          }
+          open("/tmp/yvm-kaggle/kernel-metadata.json","w").write(json.dumps(meta,indent=2))
+          PY
+
+      - name: Push benchmark to Kaggle T4x2
+        if: steps.cred.outputs.ready == 'true'
+        run: |
+          kaggle kernels push             -p /tmp/yvm-kaggle             --timeout 3600             --accelerator NvidiaTeslaT4
+
+      - name: Wait for Kaggle completion
+        if: steps.cred.outputs.ready == 'true'
+        run: |
+          HANDLE="$KAGGLE_USERNAME/yvm-ltx-t4-benchmark"
+          mkdir -p out/kaggle
+          for i in $(seq 1 120); do
+            STATUS="$(kaggle kernels status "$HANDLE" 2>&1 || true)"
+            echo "$STATUS"
+            LOW="$(printf '%s' "$STATUS" | tr '[:upper:]' '[:lower:]')"
+            if printf '%s' "$LOW" | grep -q 'complete'; then
+              echo "KAGGLE_RUN=COMPLETE"
+              break
+            fi
+            if printf '%s' "$LOW" | grep -Eq 'error|failed|cancel'; then
+              kaggle kernels logs "$HANDLE" > out/kaggle/logs.txt 2>&1 || true
+              echo "KAGGLE_RUN=FAILED"
+              exit 1
+            fi
+            sleep 30
+            if [ "$i" = 120 ]; then
+              kaggle kernels logs "$HANDLE" > out/kaggle/logs.txt 2>&1 || true
+              echo "KAGGLE_RUN=TIMEOUT"
+              exit 1
+            fi
+          done
+
+      - name: Download and verify Kaggle output
+        if: steps.cred.outputs.ready == 'true'
+        run: |
+          HANDLE="$KAGGLE_USERNAME/yvm-ltx-t4-benchmark"
+          kaggle kernels output "$HANDLE" -p out/kaggle -o
+          test -f out/kaggle/yvm_kaggle_result.json
+          test -f out/kaggle/yvm_kaggle_clip.mp4
+          cat out/kaggle/yvm_kaggle_result.json
+          python yvm-cloud/qc_video.py out/kaggle/yvm_kaggle_clip.mp4             --min-duration 3 --min-width 400 --min-height 700
+          echo "KAGGLE_LTX_T4_BENCHMARK=PASS"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: yvm-kaggle-ltx-benchmark
+          path: out/
+          retention-days: 1
