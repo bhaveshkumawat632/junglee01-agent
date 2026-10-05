@@ -34,8 +34,9 @@ It does not modify the existing local YVM scripts or services.
 - Pollinations legacy image endpoint now returns HTTP 402 and is disabled by policy; the system does not switch to a paid endpoint.
 
 ### READY BUT REQUIRES FREE ACCOUNT CREDENTIAL
+- Vidu claw-pass: adapter implemented and hard-locked to `schedule-mode=claw_pass`; it never falls back to normal credits. Live quota/generation gate is ready and waits for `VIDU_TOKEN`.
+- Kaggle GPU: T4x2 LTX-Video 2B distilled benchmark worker and GitHub Actions launcher are implemented. Live benchmark waits for `KAGGLE_API_TOKEN` + `KAGGLE_USERNAME`.
 - Agnes AI video: adapter implemented. The service requires a free Agnes API key; no payment card is part of the design.
-- Kaggle GPU: reserved as an open-model GPU lane when a Kaggle credential is available.
 - Gemini Web / Google Flow: reserved for browser-session quality upgrades when a cloud-authenticated browser session is available.
 
 ## Production architecture
@@ -47,6 +48,8 @@ It does not modify the existing local YVM scripts or services.
    - procedural generated fallback for any missing visual,
    - CPU motion rendering in GitHub Actions.
 4. Video enhancement:
+   - Vidu claw-pass when configured and daily free quota is available,
+   - Kaggle T4x2 + LTX-Video 2B distilled when configured and benchmarked,
    - Agnes when configured,
    - validated keyless Wan 2.1 motion lane,
    - Wan 2.2 image-to-video when its live gate passes,
@@ -74,3 +77,19 @@ The remaining external authorization for publishing is YouTube OAuth:
 - `YOUTUBE_REFRESH_TOKEN`
 
 Do not commit these values to the repository.
+
+
+## Current external blocker
+
+The repository currently has no configured Vidu, Kaggle, or Agnes credential in GitHub Actions.
+The no-spend readiness probe confirmed this without exposing secret values.
+
+Preferred next live test: Kaggle T4x2 LTX benchmark because Kaggle provides quota-limited free GPU compute and does not require a payment card for the normal free account path.
+
+Required GitHub Actions secrets for that test:
+- `KAGGLE_API_TOKEN`
+- `KAGGLE_USERNAME`
+
+Optional alternatives:
+- `VIDU_TOKEN` for claw-pass-only video generation
+- `AGNES_API_KEY` for Agnes video
