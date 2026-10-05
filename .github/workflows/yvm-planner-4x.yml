@@ -1,0 +1,46 @@
+name: YVM Planner Sequential 4x Gate
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/yvm-planner-4x.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  capacity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --disable-pip-version-check requests
+      - name: Run four planners sequentially
+        run: |
+          mkdir -p out/plans
+          python yvm-cloud/daily_plan.py --topic "AI chips and data centers" --output out/plans/1.json
+          sleep 2
+          python yvm-cloud/daily_plan.py --topic "How cloud computing businesses make money" --output out/plans/2.json
+          sleep 2
+          python yvm-cloud/daily_plan.py --topic "How Wall Street information systems changed trading" --output out/plans/3.json
+          sleep 2
+          python yvm-cloud/daily_plan.py --topic "Why digital payments matter to modern business" --output out/plans/4.json
+      - name: Verify 4x
+        run: |
+          python - <<'PY'
+          import glob,json
+          fs=glob.glob("out/plans/*.json")
+          assert len(fs)==4
+          for f in fs:
+              d=json.load(open(f))
+              assert str(d.get("planner","")).startswith("llm7/")
+              assert len(d["scene_prompts"])==12
+              print(f,d["planner"],d["title_en"])
+          print("PLANNER_4X=PASS")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yvm-planner-4x
+          path: out/plans/*.json
+          retention-days: 1
