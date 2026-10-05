@@ -1,0 +1,49 @@
+name: YVM Daily Production
+
+# Scheduler is intentionally NOT enabled until YouTube OAuth is connected.
+# Production target when enabled: 21:00 IST = 15:30 UTC.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  produce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          python -m pip install --disable-pip-version-check -r yvm-cloud/requirements.txt
+
+      - name: Produce English and Hindi Shorts
+        run: |
+          python yvm-cloud/run_daily.py             --workdir out/daily             --scenes 12             --clip-duration 5             --final-duration 60             --free-video-bonus 2
+
+      - name: Upload production package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: yvm-daily-package
+          path: |
+            out/daily/result.json
+            out/daily/plan.json
+            out/daily/assets/attribution.json
+            out/daily/render/final_en.mp4
+            out/daily/render/final_hi.mp4
+          retention-days: 2
+
+      - name: Upload both videos to YouTube
+        if: ${{ vars.YVM_PRODUCTION_ENABLED == 'true' }}
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: |
+          python yvm-cloud/upload_pair.py             --result out/daily/result.json             --privacy public
