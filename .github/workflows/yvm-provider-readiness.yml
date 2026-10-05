@@ -1,0 +1,102 @@
+name: YVM Free Provider Readiness
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "yvm-cloud/vidu_video.py"
+      - "yvm-cloud/kaggle_ltx_worker.py"
+      - ".github/workflows/yvm-provider-readiness.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VIDU_TOKEN: ${{ secrets.VIDU_TOKEN }}
+      VIDU_BASE_URL: https://service.vidu.com
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate adapter syntax
+        run: |
+          python -m py_compile yvm-cloud/vidu_video.py
+          python -m py_compile yvm-cloud/kaggle_ltx_worker.py
+          echo "ADAPTER_SYNTAX=PASS"
+
+      - name: Install provider CLIs
+        run: |
+          npm install -g vidu-cli@latest
+          python -m pip install --disable-pip-version-check -q kaggle
+          vidu-cli --help >/dev/null
+          kaggle --help >/dev/null
+          echo "CLI_INSTALL=PASS"
+
+      - name: Record configured credential lanes
+        run: |
+          mkdir -p out
+          python - <<'PY'
+          import json, os
+          status={
+            "vidu_token_configured": bool(os.getenv("VIDU_TOKEN")),
+            "kaggle_token_configured": bool(os.getenv("KAGGLE_API_TOKEN")),
+            "kaggle_username_configured": bool(os.getenv("KAGGLE_USERNAME")),
+            "agnes_key_configured": bool(os.getenv("AGNES_API_KEY")),
+            "payment_card_required_by_yvm": False,
+            "paid_fallback_allowed": False,
+          }
+          open("out/provider-readiness.json","w").write(json.dumps(status,indent=2))
+          print(json.dumps(status,indent=2))
+          PY
+
+      - name: Check Vidu claw-pass quota without spending
+        if: ${{ env.VIDU_TOKEN != '' }}
+        run: |
+          set +e
+          vidu-cli quota pass > out/vidu-quota.json
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
+            python - <<'PY'
+          import json
+          d=json.load(open("out/vidu-quota.json"))
+          print("VIDU_AUTH=PASS")
+          print("VIDU_HAS_CLAW_PASS="+str(bool(d.get("has_pass"))).lower())
+          print("VIDU_DAILY_QUOTA_SECONDS="+str(d.get("daily_quota_seconds",0)))
+          print("VIDU_REMAIN_SECONDS="+str(d.get("remain_seconds",0)))
+          PY
+          else
+            echo "VIDU_AUTH=FAIL"
+          fi
+
+      - name: Check Kaggle auth without starting GPU
+        if: ${{ env.KAGGLE_API_TOKEN != '' }}
+        run: |
+          if kaggle kernels list --mine --page-size 1 >/dev/null 2>&1; then
+            echo "KAGGLE_AUTH=PASS"
+          else
+            echo "KAGGLE_AUTH=FAIL"
+          fi
+
+      - name: No-card policy gate
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open("yvm-cloud/provider-policy.json"))
+          assert p["no_billing_details"] is True
+          assert p["paid_fallback_allowed"] is False
+          print("NO_CARD_POLICY=PASS")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yvm-free-provider-readiness
+          path: out/
+          retention-days: 1
