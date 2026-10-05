@@ -12,6 +12,7 @@ def env_ok(name):
 
 def high_level_readiness():
     return [
+        {"provider":"vidu","configured":env_ok("VIDU_TOKEN"),"role":"optional_motion_claw_pass_only"},
         {"provider":"agnes","configured":env_ok("AGNES_API_KEY"),"role":"optional_motion"},
         {"provider":"kaggle","configured":bool(env_ok("KAGGLE_API_TOKEN") or (env_ok("KAGGLE_USERNAME") and env_ok("KAGGLE_KEY"))),"role":"optional_gpu"},
         {"provider":"gemini_web","configured":bool(env_ok("GEMINI_WEB_BASE_URL") or env_ok("GEMINI_WEB_COOKIES") or env_ok("GEMINI_WEB_COOKIE")),"role":"optional_session"},
@@ -21,6 +22,8 @@ def high_level_readiness():
     ]
 
 def choose_motion_lane(reference_available=False):
+    if env_ok("VIDU_TOKEN"):
+        return "vidu"
     if env_ok("AGNES_API_KEY"):
         return "agnes"
     motion=(METRICS.get("motion_lanes") or {})
