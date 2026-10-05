@@ -103,6 +103,7 @@ jobs:
       - name: Download and verify Kaggle output
         if: steps.cred.outputs.ready == 'true'
         run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
           HANDLE="$KAGGLE_USERNAME/yvm-ltx-t4-benchmark"
           kaggle kernels output "$HANDLE" -p out/kaggle -o
           test -f out/kaggle/yvm_kaggle_result.json
