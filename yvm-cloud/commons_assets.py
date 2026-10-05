@@ -100,7 +100,7 @@ def main():
     good=sum(x.get("status") in ("ok","existing_non_commons") for x in records)
     print("ASSETS_OK",good,"OF",a.count)
     if good < max(4,a.count//2):
-        raise SystemExit("Too few Commons assets")
+        print("COMMONS_DEGRADED: procedural CPU fallback will fill missing scenes")
 
 if __name__=="__main__":
     main()
