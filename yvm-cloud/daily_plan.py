@@ -102,8 +102,8 @@ def production_prompt(topic):
         + topic + "\n"
         + "Return ONLY valid JSON matching: " + json.dumps(schema) + "\n"
         + "Requirements: factual, high-retention, monetization-friendly; 55-60 second English narration "
-        + "and a natural Hindi narration conveying the same verified points; hook within first 2 seconds; "
-        + "exactly 12 cinematic realistic 9:16 scene prompts, each intended for about 5 seconds; "
+        + "and a natural Hindi narration conveying the same verified points; Hindi title must contain Devanagari; "
+        + "hook within first 2 seconds; exactly 12 cinematic realistic 9:16 scene prompts, each intended for about 5 seconds; "
         + "no readable text, logos, copyrighted characters, fabricated quotes or unsupported precise numbers. "
         + "If the headline is uncertain, frame it cautiously instead of inventing facts. "
         + "End with a brief useful curiosity/engagement line, not clickbait spam."
@@ -152,19 +152,25 @@ def pollinations_plan(topic):
 
 def fallback_plan(topic):
     en=(
-        f"Here is the useful story behind {topic}. The headline may move quickly, so focus on what is actually known. "
-        "Start with the confirmed event, then ask who is affected and what could change next. "
-        "For technology and markets, the first reaction is often louder than the long-term impact. "
-        "That is why one viral post is not enough. Check the original announcement, compare reliable reporting, "
-        "and separate facts from predictions. The practical takeaway is simple: understand the mechanism before "
-        "making a money, technology, or business decision. The next update matters more than the first rumor."
+        f"Here is the useful story behind {topic}. The headline may move quickly, so focus first on what is actually known. "
+        "Identify the confirmed event, who announced it, who could be affected, and which details are still uncertain. "
+        "Then look at the mechanism: how could this change technology, money, business, customers, or markets in practice? "
+        "The first online reaction is often louder than the long-term impact, so one viral post is never enough evidence. "
+        "Check the original announcement, compare several reliable reports, and separate verified facts from forecasts. "
+        "Watch for the next measurable signal, such as a product release, filing, price change, adoption number, or official update. "
+        "That second piece of evidence often tells you more than the first headline. "
+        "The practical takeaway is simple: understand what changed, why it matters, and what evidence would confirm the story before making a decision. "
+        "Stay curious, but let verified updates lead the conclusion."
     )
     hi=(
-        f"{topic} के पीछे की काम की बात समझिए। Headline तेजी से बदल सकती है, इसलिए पहले confirmed event पर focus करें। "
-        "फिर देखें असर किस पर पड़ेगा और अगला बदलाव क्या हो सकता है। Technology और markets में पहली reaction अक्सर "
-        "long-term impact से ज्यादा तेज होती है। इसलिए एक viral post पर भरोसा मत कीजिए। Original announcement देखें, "
-        "reliable reports compare करें और facts को predictions से अलग रखें। Practical lesson यही है: किसी money, "
-        "technology या business decision से पहले mechanism समझिए। अगला verified update पहली rumor से ज्यादा important है।"
+        f"{topic} के पीछे की असली काम की बात समझिए। Headline तेजी से बदल सकती है, इसलिए सबसे पहले यह देखें कि confirmed event क्या है, "
+        "इसे किसने announce किया और कौन-सी बातें अभी भी uncertain हैं। फिर mechanism समझिए: इसका असर technology, money, business, "
+        "customers या markets पर practically कैसे पड़ सकता है? Online पहली reaction अक्सर long-term impact से ज्यादा तेज होती है, "
+        "इसलिए एक viral post को evidence मत मानिए। Original announcement देखें, कई reliable reports compare करें और verified facts को "
+        "forecasts से अलग रखें। इसके बाद अगला measurable signal देखें—जैसे official update, product release, filing, price change, "
+        "adoption number या कोई confirmed result। अक्सर यही दूसरा signal पहली headline से ज्यादा useful होता है। "
+        "Practical lesson साफ है: decision लेने से पहले समझिए कि क्या बदला, क्यों matter करता है और कौन-सा evidence इस story को confirm करेगा। "
+        "Curious रहिए, लेकिन conclusion verified updates के आधार पर बनाइए।"
     )
     motifs=[
         f"cinematic vertical documentary opening representing {topic}, realistic practical lighting, no text",
