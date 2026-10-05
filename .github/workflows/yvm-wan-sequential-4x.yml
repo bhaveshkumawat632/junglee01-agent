@@ -1,0 +1,39 @@
+name: YVM Wan Sequential 4x Motion Gate
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/yvm-wan-sequential-4x.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  capacity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          python -m pip install --disable-pip-version-check "gradio_client>=1.3"
+      - name: Generate four safe Wan clips sequentially
+        run: |
+          mkdir -p out
+          for CYCLE in 1 2 3 4; do
+            python yvm-cloud/wan_zerogpu.py               --prompt "cinematic technology and finance documentary scene, natural adult professionals, realistic office motion, vertical framing, no readable text, no logo, variation $CYCLE"               --output "out/wan_${CYCLE}.mp4"               --duration 1.8               --steps 6               --seed "$((632 + CYCLE))"
+            python yvm-cloud/qc_video.py "out/wan_${CYCLE}.mp4" --min-duration 1.5 --min-width 400 --min-height 700
+          done
+      - name: Gate
+        run: |
+          test "$(find out -name 'wan_*.mp4' | wc -l)" -eq 4
+          echo "WAN_MOTION_UNITS=4"
+          echo "WAN_SEQUENTIAL_4X_MOTION_GATE=PASS"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wan-sequential-4x-motion
+          path: out/wan_*.mp4
+          retention-days: 1
