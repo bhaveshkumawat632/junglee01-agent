@@ -33,6 +33,7 @@ def main():
     ap.add_argument("--clip-duration",type=float,default=5)
     ap.add_argument("--final-duration",type=int,default=60)
     ap.add_argument("--free-video-bonus",type=int,default=2)
+    ap.add_argument("--min-ai-motion-scenes",type=int,default=0)
     a=ap.parse_args()
 
     wd=Path(a.workdir)
@@ -95,6 +96,12 @@ def main():
             tmp.unlink(missing_ok=True)
         time.sleep(1)
 
+    if upgraded < a.min_ai_motion_scenes:
+        raise SystemExit(
+            f"QUALITY GATE FAIL: only {upgraded} real AI-motion scenes; "
+            f"required {a.min_ai_motion_scenes}. Refusing weak fallback package."
+        )
+
     ordered=[clips/f"scene_{i:02d}.mp4" for i in range(1,a.scenes+1)]
     for p in ordered:
         if not p.exists():
@@ -102,7 +109,8 @@ def main():
 
     visual=wd/"visual_master.mp4"
     run([sys.executable,HERE/"stitch.py","--output",visual,*ordered])
-    run([sys.executable,HERE/"qc_video.py",visual,"--min-duration",str(max(10,a.scenes*a.clip_duration-1)),"--min-width","1000","--min-height","1800"])
+    run([sys.executable,HERE/"qc_video.py",visual,"--min-duration",str(max(10,a.scenes*a.clip_duration-1)),"--min-width","1000","--min-height","1800","--video-codec","h264"])
+    run([sys.executable,HERE/"qc_motion.py",visual])
 
     en=wd/"script_en.txt"
     hi=wd/"script_hi.txt"
@@ -123,8 +131,17 @@ def main():
         run([
             sys.executable,HERE/"qc_video.py",render_dir/name,
             "--min-duration",str(max(3,a.final_duration-0.5)),
-            "--min-width","1000","--min-height","1800","--require-audio"
+            "--min-width","1000","--min-height","1800","--require-audio",
+            "--video-codec","h264","--audio-codec","aac"
         ])
+
+    run([
+        sys.executable,HERE/"qc_pair.py",
+        "--en-video",render_dir/"final_en.mp4",
+        "--hi-video",render_dir/"final_hi.mp4",
+        "--en-subtitles",render_dir/"subtitles_en.srt",
+        "--hi-subtitles",render_dir/"subtitles_hi.srt",
+    ])
 
     credits=credits_from(assets/"attribution.json")
     en_desc=(plan["description_en"].strip()+"\n\n"+credits).strip()
@@ -144,6 +161,9 @@ def main():
         "final_hi":str(render_dir/"final_hi.mp4"),
         "scene_count":len(ordered),
         "ai_video_upgrades":upgraded,
+        "minimum_ai_motion_scenes_required":a.min_ai_motion_scenes,
+        "subtitles_en":str(render_dir/"subtitles_en.srt"),
+        "subtitles_hi":str(render_dir/"subtitles_hi.srt"),
         "commons_attribution":str(assets/"attribution.json"),
         "payment_card_used":False,
     }
