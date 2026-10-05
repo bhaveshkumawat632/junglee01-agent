@@ -21,11 +21,11 @@
     "billing_details_allowed": false
   },
   "provider_order": [
+    "kaggle",
     "vidu",
     "agnes",
-    "kaggle",
+    "hf_zerogpu",
     "gemini_web",
-    "google_flow",
-    "hf_zerogpu"
+    "google_flow"
   ]
 }
