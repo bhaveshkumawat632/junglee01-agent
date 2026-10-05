@@ -100,6 +100,13 @@ jobs:
             fi
           done
 
+      - name: Install FFmpeg for output QC
+        if: steps.cred.outputs.ready == 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          ffprobe -version | head -n 1
+
       - name: Download and verify Kaggle output
         if: steps.cred.outputs.ready == 'true'
         run: |
@@ -121,4 +128,4 @@ jobs:
           path: out/
           retention-days: 1
 
-# trigger: dual-t4-coherent-2026-10-05
+# trigger: ffprobe-qc-fix-2026-10-05
