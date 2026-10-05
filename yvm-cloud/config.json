@@ -1,25 +1,27 @@
 {
-  "timezone": "Asia/Kolkata",
-  "target_upload_time": "21:00",
-  "daily_cycle": {
-    "visual_master_count": 1,
-    "languages": ["en", "hi"],
-    "outputs_per_cycle": 2,
-    "capacity_gate_multiple": 4
+  "version": 1,
+  "schedule": {
+    "timezone": "Asia/Kolkata",
+    "target_local_time": "21:07",
+    "enabled": false
   },
+  "languages": ["en", "hi"],
   "video": {
-    "aspect_ratio": "9:16",
     "width": 1080,
     "height": 1920,
-    "target_duration_seconds": 60,
-    "codec": "h264",
-    "audio_codec": "aac"
+    "fps": 30,
+    "target_duration_seconds": 60
   },
-  "providers": {
-    "priority": ["agnes", "hf_zerogpu", "kaggle", "gemini_web", "google_flow"],
+  "capacity_policy": {
+    "required_multiple": 4,
     "paid_fallback": false,
     "billing_details_allowed": false
   },
-  "production_enabled": false,
-  "youtube_upload_enabled": false
+  "provider_order": [
+    "agnes",
+    "kaggle",
+    "gemini_web",
+    "google_flow",
+    "hf_zerogpu"
+  ]
 }
