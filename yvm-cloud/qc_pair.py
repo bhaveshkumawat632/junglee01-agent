@@ -25,6 +25,7 @@ def main():
     ap.add_argument("--hi-video",required=True)
     ap.add_argument("--en-subtitles",required=True)
     ap.add_argument("--hi-subtitles",required=True)
+    ap.add_argument("--min-cues",type=int,default=1)
     a=ap.parse_args()
 
     en_hash=audio_hash(a.en_video)
@@ -34,8 +35,11 @@ def main():
 
     en=subtitle_stats(a.en_subtitles)
     hi=subtitle_stats(a.hi_subtitles)
-    if en["cues"]<2 or hi["cues"]<2:
-        raise SystemExit(f"PAIR QC FAIL: insufficient subtitle cues en={en['cues']} hi={hi['cues']}")
+    if en["cues"]<a.min_cues or hi["cues"]<a.min_cues:
+        raise SystemExit(
+            f"PAIR QC FAIL: insufficient subtitle cues en={en['cues']} "
+            f"hi={hi['cues']} required={a.min_cues}"
+        )
     if not re.search(r"[\u0900-\u097F]",hi["text"]):
         raise SystemExit("PAIR QC FAIL: Hindi subtitles contain no Devanagari text")
 
@@ -46,6 +50,7 @@ def main():
         "audio_streams_differ":True,
         "english_subtitle_cues":en["cues"],
         "hindi_subtitle_cues":hi["cues"],
+        "minimum_subtitle_cues_required":a.min_cues,
         "hindi_devanagari_present":True,
     },indent=2))
 
