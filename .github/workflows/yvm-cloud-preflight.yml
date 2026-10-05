@@ -21,9 +21,13 @@ jobs:
           python - <<'PY'
           import json
           p=json.load(open("yvm-cloud/provider-policy.json"))
+          c=json.load(open("yvm-cloud/config.json"))
           assert p["no_billing_details"] is True
           assert p["paid_fallback_allowed"] is False
           assert p["required_capacity_multiple"] == 4
+          assert c["capacity_policy"]["billing_details_allowed"] is False
+          assert c["capacity_policy"]["paid_fallback"] is False
+          assert c["capacity_policy"]["required_multiple"] == 4
           print("NO_CARD_POLICY=PASS")
           print("CAPACITY_POLICY=4X")
           PY
@@ -38,15 +42,25 @@ jobs:
         run: |
           python yvm-cloud/orchestrator.py || true
 
-      - name: YouTube auth readiness
+      - name: YouTube OAuth readiness
         env:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         run: |
-          python yvm-cloud/youtube_upload.py || true
+          python - <<'PY'
+          import os
+          names=["YOUTUBE_CLIENT_ID","YOUTUBE_CLIENT_SECRET","YOUTUBE_REFRESH_TOKEN"]
+          missing=[x for x in names if not os.getenv(x)]
+          if missing:
+              print("YOUTUBE_AUTH=WAITING")
+              print("MISSING="+",".join(missing))
+          else:
+              print("YOUTUBE_AUTH=SECRETS_PRESENT")
+          PY
 
       - name: Summary
         run: |
           echo "Preflight complete."
-          echo "Daily production remains disabled until provider 4x burn-in and YouTube OAuth are both green."
+          echo "Card-free baseline remains usable without optional provider credentials."
+          echo "Production publishing stays disabled until YouTube OAuth is green."
