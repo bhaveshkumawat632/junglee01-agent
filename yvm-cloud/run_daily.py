@@ -187,6 +187,7 @@ def main():
         "--hi-video",render_dir/"final_hi.mp4",
         "--en-subtitles",render_dir/"subtitles_en.srt",
         "--hi-subtitles",render_dir/"subtitles_hi.srt",
+        "--min-cues","3",
     ])
 
     credits=credits_from(assets/"attribution.json")
