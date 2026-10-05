@@ -7,7 +7,9 @@ TRENDS = [
     "https://trends.google.com/trending/rss?geo=IN",
     "https://trends.google.com/trending/rss?geo=US",
 ]
-TEXT_URL = "https://text.pollinations.ai/openai"\nLLM7_BASE = "https://api.llm7.io/v1"\nNEWS_RSS = "https://news.google.com/rss/search?q=AI%20OR%20technology%20OR%20finance%20OR%20business%20when%3A1d&hl=en-IN&gl=IN&ceid=IN%3Aen"
+TEXT_URL = "https://text.pollinations.ai/openai"
+LLM7_BASE = "https://api.llm7.io/v1"
+NEWS_RSS = "https://news.google.com/rss/search?q=AI%20OR%20technology%20OR%20finance%20OR%20business%20when%3A1d&hl=en-IN&gl=IN&ceid=IN%3Aen"
 
 def get_trends():
     rows = []
