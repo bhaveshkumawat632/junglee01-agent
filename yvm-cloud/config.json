@@ -5,7 +5,10 @@
     "target_local_time": "21:07",
     "enabled": false
   },
-  "languages": ["en", "hi"],
+  "languages": [
+    "en",
+    "hi"
+  ],
   "video": {
     "width": 1080,
     "height": 1920,
@@ -18,6 +21,7 @@
     "billing_details_allowed": false
   },
   "provider_order": [
+    "vidu",
     "agnes",
     "kaggle",
     "gemini_web",
