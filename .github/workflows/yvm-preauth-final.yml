@@ -1,0 +1,104 @@
+name: YVM Pre-Auth Final Gate
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/yvm-preauth-final.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  preauth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cloud pipeline dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          python -m pip install --disable-pip-version-check -r yvm-cloud/requirements.txt
+
+      - name: Enforce no-card and disabled-production policy
+        run: |
+          python - <<'PY'
+          import json
+          c=json.load(open("yvm-cloud/config.json"))
+          p=json.load(open("yvm-cloud/provider-policy.json"))
+          assert c["capacity_policy"]["billing_details_allowed"] is False
+          assert c["capacity_policy"]["paid_fallback"] is False
+          assert c["capacity_policy"]["required_multiple"] == 4
+          assert c["schedule"]["enabled"] is False
+          assert p["no_billing_details"] is True
+          assert p["paid_fallback_allowed"] is False
+          print("POLICY_GATE=PASS")
+          PY
+
+      - name: Build one complete bilingual daily package with real AI-motion upgrades
+        run: |
+          python yvm-cloud/run_daily.py             --workdir out/preauth             --topic "1990s Wall Street Trading Secrets"             --scenes 12             --clip-duration 5             --final-duration 60             --free-video-bonus 2
+
+      - name: Verify production package
+        run: |
+          python yvm-cloud/qc_video.py out/preauth/render/final_en.mp4 --min-duration 59.5 --min-width 1000 --min-height 1800 --require-audio
+          python yvm-cloud/qc_video.py out/preauth/render/final_hi.mp4 --min-duration 59.5 --min-width 1000 --min-height 1800 --require-audio
+          python - <<'PY'
+          import json
+          d=json.load(open("out/preauth/result.json"))
+          assert d["status"]=="READY_FOR_UPLOAD"
+          assert d["payment_card_used"] is False
+          assert d["scene_count"]==12
+          assert d["ai_video_upgrades"] >= 2, d["ai_video_upgrades"]
+          print("AI_MOTION_UPGRADES="+str(d["ai_video_upgrades"]))
+          print("PACKAGE_GATE=PASS")
+          PY
+
+      - name: Dry-run English YouTube upload
+        run: |
+          python - <<'PY'
+          import json,subprocess,sys
+          d=json.load(open("out/preauth/result.json"))
+          subprocess.run([
+            sys.executable,"yvm-cloud/youtube_upload.py",
+            "--file",d["final_en"],
+            "--title",d["title_en"],
+            "--description",d["description_en"],
+            "--tags",",".join(d.get("tags_en",[])),
+            "--privacy","private","--language","en","--dry-run"
+          ],check=True)
+          PY
+
+      - name: Dry-run Hindi YouTube upload
+        run: |
+          python - <<'PY'
+          import json,subprocess,sys
+          d=json.load(open("out/preauth/result.json"))
+          subprocess.run([
+            sys.executable,"yvm-cloud/youtube_upload.py",
+            "--file",d["final_hi"],
+            "--title",d["title_hi"],
+            "--description",d["description_hi"],
+            "--tags",",".join(d.get("tags_hi",[])),
+            "--privacy","private","--language","hi","--dry-run"
+          ],check=True)
+          PY
+
+      - name: Confirm publishing is still locked
+        run: |
+          test "${YVM_PRODUCTION_ENABLED:-false}" != "true"
+          echo "YOUTUBE_LIVE_UPLOAD=LOCKED"
+          echo "SCHEDULER=DISABLED"
+          echo "PREAUTH_FINAL_GATE=PASS"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yvm-preauth-final-package
+          path: |
+            out/preauth/result.json
+            out/preauth/plan.json
+            out/preauth/render/final_en.mp4
+            out/preauth/render/final_hi.mp4
+          retention-days: 1
