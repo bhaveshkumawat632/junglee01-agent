@@ -37,3 +37,5 @@ jobs:
           name: yvm-daily-plan-test
           path: out/plan.json
           retention-days: 1
+
+# planner-v2
