@@ -1,0 +1,25 @@
+{
+  "timezone": "Asia/Kolkata",
+  "target_upload_time": "21:00",
+  "daily_cycle": {
+    "visual_master_count": 1,
+    "languages": ["en", "hi"],
+    "outputs_per_cycle": 2,
+    "capacity_gate_multiple": 4
+  },
+  "video": {
+    "aspect_ratio": "9:16",
+    "width": 1080,
+    "height": 1920,
+    "target_duration_seconds": 60,
+    "codec": "h264",
+    "audio_codec": "aac"
+  },
+  "providers": {
+    "priority": ["agnes", "hf_zerogpu", "kaggle", "gemini_web", "google_flow"],
+    "paid_fallback": false,
+    "billing_details_allowed": false
+  },
+  "production_enabled": false,
+  "youtube_upload_enabled": false
+}
