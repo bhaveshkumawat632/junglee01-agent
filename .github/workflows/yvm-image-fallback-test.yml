@@ -1,0 +1,40 @@
+name: YVM Keyless Image Fallback Test
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/yvm-image-fallback-test.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg file
+      - name: Generate keyless portrait image
+        run: |
+          mkdir -p out
+          python - <<'PY'
+          import urllib.parse, requests
+          prompt="cinematic realistic 1990s Wall Street trading floor, CRT monitors, documentary photography, vertical composition, natural people, no text, no logos"
+          url="https://image.pollinations.ai/prompt/"+urllib.parse.quote(prompt)+"?width=768&height=1344&nologo=true&nofeed=true&safe=true&seed=632"
+          print(url)
+          r=requests.get(url,timeout=180)
+          print("HTTP",r.status_code,"TYPE",r.headers.get("content-type"),"BYTES",len(r.content))
+          r.raise_for_status()
+          open("out/image.jpg","wb").write(r.content)
+          PY
+          file out/image.jpg
+          ffprobe -v error -show_entries stream=width,height,codec_name -of default=noprint_wrappers=1 out/image.jpg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yvm-keyless-image-test
+          path: out/image.jpg
+          retention-days: 1
