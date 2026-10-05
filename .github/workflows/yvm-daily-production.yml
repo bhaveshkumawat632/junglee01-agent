@@ -1,15 +1,23 @@
 name: YVM Daily Production
 
-# Scheduler is intentionally NOT enabled until YouTube OAuth is connected.
-# Production target when enabled: 21:00 IST = 15:30 UTC.
+# Safe schedule is installed now, but the scheduled job is skipped until
+# YVM_PRODUCTION_ENABLED=true after YouTube OAuth is connected.
+# 15:37 UTC = 21:07 IST.
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "37 15 * * *"
 
 permissions:
   contents: read
 
+concurrency:
+  group: yvm-daily-production
+  cancel-in-progress: false
+
 jobs:
   produce:
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.YVM_PRODUCTION_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -27,10 +35,15 @@ jobs:
         run: |
           python yvm-cloud/run_daily.py             --workdir out/daily             --scenes 12             --clip-duration 5             --final-duration 60             --free-video-bonus 2
 
+      - name: Verify final pair before publishing
+        run: |
+          python yvm-cloud/qc_video.py out/daily/render/final_en.mp4 --min-duration 59.5 --min-width 1000 --min-height 1800 --require-audio
+          python yvm-cloud/qc_video.py out/daily/render/final_hi.mp4 --min-duration 59.5 --min-width 1000 --min-height 1800 --require-audio
+
       - name: Upload production package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: yvm-daily-package
+          name: yvm-daily-package-${{ github.run_id }}
           path: |
             out/daily/result.json
             out/daily/plan.json
@@ -38,6 +51,14 @@ jobs:
             out/daily/render/final_en.mp4
             out/daily/render/final_hi.mp4
           retention-days: 2
+
+      - name: Require YouTube OAuth before public upload
+        if: ${{ vars.YVM_PRODUCTION_ENABLED == 'true' }}
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: python yvm-cloud/youtube_preflight.py
 
       - name: Upload both videos to YouTube
         if: ${{ vars.YVM_PRODUCTION_ENABLED == 'true' }}
