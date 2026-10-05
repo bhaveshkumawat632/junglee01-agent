@@ -1,0 +1,108 @@
+name: YVM Kaggle LTX Quality Benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/yvm-kaggle-ltx-quality.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yvm-kaggle-gpu
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Kaggle CLI
+        run: |
+          test -n "$KAGGLE_API_TOKEN"
+          test -n "$KAGGLE_USERNAME"
+          python -m pip install --disable-pip-version-check -q kaggle
+
+      - name: Build 432x768 private benchmark kernel
+        run: |
+          rm -rf /tmp/yvm-kaggle-quality
+          mkdir -p /tmp/yvm-kaggle-quality
+          cp yvm-cloud/kaggle_ltx_worker.py /tmp/yvm-kaggle-quality/worker.py
+          python - <<'PY'
+          from pathlib import Path
+          p=Path("/tmp/yvm-kaggle-quality/worker.py")
+          s=p.read_text()
+          old='"--height","576",\n        "--width","320",'
+          new='"--height","768",\n        "--width","432",'
+          if old not in s:
+              raise SystemExit("QUALITY_VARIANT_PATCH_TARGET_MISSING")
+          p.write_text(s.replace(old,new,1))
+          PY
+          python - <<'PY'
+          import json, os
+          user=os.environ["KAGGLE_USERNAME"]
+          meta={
+            "id":f"{user}/yvm-ltx-t4-quality",
+            "title":"YVM LTX T4 Quality Benchmark",
+            "code_file":"worker.py",
+            "language":"python",
+            "kernel_type":"script",
+            "is_private":True,
+            "enable_gpu":True,
+            "enable_internet":True
+          }
+          open("/tmp/yvm-kaggle-quality/kernel-metadata.json","w").write(json.dumps(meta,indent=2))
+          PY
+
+      - name: Push 432x768 benchmark to T4x2
+        run: |
+          kaggle kernels push             -p /tmp/yvm-kaggle-quality             --timeout 3600             --accelerator NvidiaTeslaT4
+
+      - name: Wait for Kaggle completion
+        run: |
+          HANDLE="$KAGGLE_USERNAME/yvm-ltx-t4-quality"
+          mkdir -p out/kaggle-quality
+          for i in $(seq 1 120); do
+            STATUS="$(kaggle kernels status "$HANDLE" 2>&1 || true)"
+            echo "$STATUS"
+            LOW="$(printf '%s' "$STATUS" | tr '[:upper:]' '[:lower:]')"
+            if printf '%s' "$LOW" | grep -q 'complete'; then
+              echo "KAGGLE_QUALITY_RUN=COMPLETE"
+              break
+            fi
+            if printf '%s' "$LOW" | grep -Eq 'error|failed|cancel'; then
+              kaggle kernels logs "$HANDLE" > out/kaggle-quality/logs.txt 2>&1 || true
+              exit 1
+            fi
+            sleep 30
+            if [ "$i" = 120 ]; then
+              kaggle kernels logs "$HANDLE" > out/kaggle-quality/logs.txt 2>&1 || true
+              exit 1
+            fi
+          done
+
+      - name: Verify higher-resolution motion clip
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          HANDLE="$KAGGLE_USERNAME/yvm-ltx-t4-quality"
+          kaggle kernels output "$HANDLE" -p out/kaggle-quality -o
+          test -f out/kaggle-quality/yvm_kaggle_result.json
+          test -f out/kaggle-quality/yvm_kaggle_clip.mp4
+          cat out/kaggle-quality/yvm_kaggle_result.json
+          python yvm-cloud/qc_video.py out/kaggle-quality/yvm_kaggle_clip.mp4             --min-duration 3 --min-width 420 --min-height 750
+          python yvm-cloud/qc_motion.py out/kaggle-quality/yvm_kaggle_clip.mp4
+          echo "KAGGLE_LTX_432X768_QUALITY=PASS"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: yvm-kaggle-ltx-quality
+          path: out/kaggle-quality/
+          retention-days: 1
