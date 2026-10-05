@@ -7,7 +7,7 @@ TRENDS = [
     "https://trends.google.com/trending/rss?geo=IN",
     "https://trends.google.com/trending/rss?geo=US",
 ]
-TEXT_URL = "https://text.pollinations.ai/openai"
+TEXT_URL = "https://text.pollinations.ai/openai"\nLLM7_BASE = "https://api.llm7.io/v1"\nNEWS_RSS = "https://news.google.com/rss/search?q=AI%20OR%20technology%20OR%20finance%20OR%20business%20when%3A1d&hl=en-IN&gl=IN&ceid=IN%3Aen"
 
 def get_trends():
     rows = []
@@ -117,14 +117,21 @@ def main():
     rows = get_trends()
     topic = a.topic or choose(rows)
     try:
-        plan = public_llm(topic)
+        plan, route = llm7(topic)
         if not valid(plan):
-            raise ValueError("planner validation failed")
-        plan["planner"] = "pollinations_public"
-    except Exception as e:
-        print("public planner fallback:", e, file=sys.stderr)
-        plan = fallback(topic)
-        plan["planner"] = "deterministic_fallback"
+            raise ValueError("LLM7 planner validation failed")
+        plan["planner"] = route
+    except Exception as e1:
+        print("LLM7 planner fallback:", e1, file=sys.stderr)
+        try:
+            plan = public_llm(topic)
+            if not valid(plan):
+                raise ValueError("Pollinations planner validation failed")
+            plan["planner"] = "pollinations_public"
+        except Exception as e2:
+            print("public planner fallback:", e2, file=sys.stderr)
+            plan = fallback(topic)
+            plan["planner"] = "deterministic_fallback"
     plan["trend_candidates"] = rows[:10]
     out = Path(a.output)
     out.parent.mkdir(parents=True, exist_ok=True)
