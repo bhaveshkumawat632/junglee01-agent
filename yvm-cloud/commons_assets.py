@@ -101,6 +101,7 @@ def main():
     ap.add_argument("--plan",required=True)
     ap.add_argument("--out-dir",default="out/assets")
     ap.add_argument("--count",type=int,default=12)
+    ap.add_argument("--unique-searches",type=int,default=6)
     a=ap.parse_args()
     plan=json.loads(Path(a.plan).read_text())
     prompts=list(plan.get("scene_prompts") or [])
@@ -135,11 +136,12 @@ def main():
             continue
 
         chosen=None
-        q=clean_query(prompt)
-        try:
-            chosen=next_unused(cached(q),used)
-        except Exception as e:
-            print("search warning",q,e)
+        if i <= max(0,a.unique_searches):
+            q=clean_query(prompt)
+            try:
+                chosen=next_unused(cached(q),used)
+            except Exception as e:
+                print("search warning",q,e)
         if not chosen:
             chosen=next_unused(fallback,used)
         if not chosen:
