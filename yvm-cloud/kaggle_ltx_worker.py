@@ -67,47 +67,6 @@ f2.write_text(c2)
     # Official inference dependencies.
     run([sys.executable,"-m","pip","install","-q","-e",".[inference]","accelerate"],cwd=SRC)
 
-    # Upstream LTX creates the pipeline by moving transformer + VAE + the large
-    # PixArt T5 encoder onto CUDA at the same time. On a 15 GiB T4 this can OOM
-    # before inference starts, even when --offload_to_cpu is requested.
-    # Patch the freshly-cloned upstream inference loader so components stay on
-    # CPU during construction and Diffusers moves one model at a time.
-    inference_py=SRC/"ltx_video/inference.py"
-    source=inference_py.read_text()
-    old_encoder='''    text_encoder = T5EncoderModel.from_pretrained(
-        text_encoder_model_name_or_path, subfolder="text_encoder"
-    )'''
-    new_encoder='''    text_encoder = T5EncoderModel.from_pretrained(
-        text_encoder_model_name_or_path,
-        subfolder="text_encoder",
-        torch_dtype=torch.bfloat16,
-        low_cpu_mem_usage=True,
-    )'''
-    old_moves='''    transformer = transformer.to(device)
-    vae = vae.to(device)
-    text_encoder = text_encoder.to(device)
-'''
-    new_moves='''    # YVM T4 patch: keep large modules on CPU until the offload hooks need them.
-'''
-    old_pipeline='''    pipeline = LTXVideoPipeline(**submodel_dict)
-    pipeline = pipeline.to(device)
-    return pipeline'''
-    new_pipeline='''    pipeline = LTXVideoPipeline(**submodel_dict)
-    if str(device).startswith("cuda"):
-        pipeline.enable_model_cpu_offload()
-    else:
-        pipeline = pipeline.to(device)
-    return pipeline'''
-    for old,new,label in [
-        (old_encoder,new_encoder,"text_encoder_bf16"),
-        (old_moves,new_moves,"initial_cuda_moves"),
-        (old_pipeline,new_pipeline,"pipeline_cpu_offload"),
-    ]:
-        if old not in source:
-            raise RuntimeError(f"LTX_PATCH_TARGET_MISSING={label}")
-        source=source.replace(old,new,1)
-    inference_py.write_text(source)
-    print("LTX_T4_PIPELINE_PATCH=APPLIED",flush=True)
 
     cfg=SRC/"configs/ltxv-2b-0.9.6-distilled.yaml"
     text=cfg.read_text()
