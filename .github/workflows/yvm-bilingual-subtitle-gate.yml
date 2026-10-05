@@ -1,0 +1,52 @@
+name: YVM Bilingual Subtitle Gate
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "yvm-cloud/render_bilingual.py"
+      - "yvm-cloud/qc_pair.py"
+      - ".github/workflows/yvm-bilingual-subtitle-gate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  subtitles:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-noto-core
+          python -m pip install --disable-pip-version-check -r yvm-cloud/requirements.txt
+
+      - name: Build short bilingual caption test
+        run: |
+          mkdir -p out/subtitle-test
+          ffmpeg -nostdin -y -f lavfi -i "color=c=0x202020:s=1080x1920:r=30:d=8"             -an -c:v libx264 -pix_fmt yuv420p out/subtitle-test/visual.mp4
+          printf '%s\n' "A hidden market signal changed the way traders reacted in seconds."             > out/subtitle-test/en.txt
+          printf '%s\n' "एक छिपे बाज़ार संकेत ने कुछ ही सेकंड में ट्रेडरों की प्रतिक्रिया बदल दी।"             > out/subtitle-test/hi.txt
+          python yvm-cloud/render_bilingual.py             --visual out/subtitle-test/visual.mp4             --en-script out/subtitle-test/en.txt             --hi-script out/subtitle-test/hi.txt             --out-dir out/subtitle-test/render             --duration 8
+
+      - name: Verify burned-caption pair
+        run: |
+          python yvm-cloud/qc_video.py out/subtitle-test/render/final_en.mp4             --min-duration 7.5 --min-width 1000 --min-height 1800             --require-audio --video-codec h264 --audio-codec aac
+          python yvm-cloud/qc_video.py out/subtitle-test/render/final_hi.mp4             --min-duration 7.5 --min-width 1000 --min-height 1800             --require-audio --video-codec h264 --audio-codec aac
+          python yvm-cloud/qc_pair.py             --en-video out/subtitle-test/render/final_en.mp4             --hi-video out/subtitle-test/render/final_hi.mp4             --en-subtitles out/subtitle-test/render/subtitles_en.srt             --hi-subtitles out/subtitle-test/render/subtitles_hi.srt
+          test -s out/subtitle-test/render/subtitles_en.srt
+          test -s out/subtitle-test/render/subtitles_hi.srt
+          echo "BILINGUAL_SUBTITLE_GATE=PASS"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yvm-bilingual-subtitle-gate
+          path: |
+            out/subtitle-test/render/final_en.mp4
+            out/subtitle-test/render/final_hi.mp4
+            out/subtitle-test/render/subtitles_en.srt
+            out/subtitle-test/render/subtitles_hi.srt
+          retention-days: 1
