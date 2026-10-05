@@ -46,6 +46,24 @@ def main():
     if not SRC.exists():
         run(["git","clone","--depth","1","https://github.com/Lightricks/LTX-Video.git",SRC])
 
+    patch_script = """
+import pathlib
+f1 = pathlib.Path('LTX-Video/ltx_video/inference.py')
+c1 = f1.read_text()
+c1 = c1.replace('text_encoder = text_encoder.to(device)', 'import torch\\n    text_encoder = text_encoder.to("cuda:1" if torch.cuda.device_count() > 1 else device)')
+f1.write_text(c1)
+
+f2 = pathlib.Path('LTX-Video/ltx_video/pipelines/pipeline_ltx_video.py')
+c2 = f2.read_text()
+c2 = c2.replace('prompt_attention_mask = prompt_attention_mask.to(device)', 'prompt_attention_mask = prompt_attention_mask.to(self._execution_device)')
+c2 = c2.replace('prompt_embeds = prompt_embeds[0]', 'prompt_embeds = prompt_embeds[0].to(self._execution_device)')
+c2 = c2.replace('negative_prompt_embeds = negative_prompt_embeds[0]', 'negative_prompt_embeds = negative_prompt_embeds[0].to(self._execution_device)')
+c2 = c2.replace('self.text_encoder = self.text_encoder.to(self._execution_device)', 'pass')
+f2.write_text(c2)
+"""
+    Path("patch.py").write_text(patch_script)
+    run([sys.executable, "patch.py"])
+
     # Official inference dependencies.
     run([sys.executable,"-m","pip","install","-q","-e",".[inference]","accelerate"],cwd=SRC)
 
