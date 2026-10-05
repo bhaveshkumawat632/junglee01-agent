@@ -109,8 +109,6 @@ def main():
         if src is None and item:
             p=Path(item["local"])
             if p.exists(): src=p
-        if src is None and existing:
-            src=existing[(i-1)%len(existing)]
         dest=out/f"scene_{i:02d}.mp4"
         if src is None:
             tmp=assets/f"fallback_{i:02d}.jpg"
