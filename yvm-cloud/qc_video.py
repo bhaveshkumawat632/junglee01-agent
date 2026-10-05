@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import argparse, json, subprocess, sys
+import argparse, json, subprocess
 
 def probe(path):
     p=subprocess.run([
@@ -15,6 +15,8 @@ def main():
     ap.add_argument("--min-width",type=int,default=360)
     ap.add_argument("--min-height",type=int,default=640)
     ap.add_argument("--require-audio",action="store_true")
+    ap.add_argument("--video-codec")
+    ap.add_argument("--audio-codec")
     a=ap.parse_args()
     d=probe(a.file)
     fmt=d.get("format",{})
@@ -28,6 +30,18 @@ def main():
     if dur<a.min_duration: raise SystemExit(f"QC FAIL: duration {dur}")
     if w<a.min_width or h<a.min_height: raise SystemExit(f"QC FAIL: resolution {w}x{h}")
     if a.require_audio and not aud: raise SystemExit("QC FAIL: no audio")
-    print(json.dumps({"status":"PASS","duration":dur,"width":w,"height":h,"video_codec":v.get("codec_name"),"audio_codec":aud[0].get("codec_name") if aud else None},indent=2))
+    if a.video_codec and v.get("codec_name")!=a.video_codec:
+        raise SystemExit(f"QC FAIL: video codec {v.get('codec_name')} != {a.video_codec}")
+    if a.audio_codec:
+        if not aud:
+            raise SystemExit("QC FAIL: audio codec required but no audio stream")
+        if aud[0].get("codec_name")!=a.audio_codec:
+            raise SystemExit(f"QC FAIL: audio codec {aud[0].get('codec_name')} != {a.audio_codec}")
+    print(json.dumps({
+        "status":"PASS","duration":dur,"width":w,"height":h,
+        "video_codec":v.get("codec_name"),
+        "audio_codec":aud[0].get("codec_name") if aud else None
+    },indent=2))
+
 if __name__=="__main__":
     main()
