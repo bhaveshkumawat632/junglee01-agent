@@ -120,4 +120,4 @@ jobs:
           path: out/
           retention-days: 1
 
-# trigger: t4-bf16-model-offload-2026-10-05
+# trigger: dual-t4-coherent-2026-10-05
