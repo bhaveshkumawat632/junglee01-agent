@@ -1,14 +1,29 @@
 {
-  "policy_version": 1,
+  "policy_version": 2,
   "no_billing_details": true,
   "paid_fallback_allowed": false,
   "required_capacity_multiple": 4,
+  "capacity_semantics": "aggregate_pool_with_guaranteed_baseline",
   "languages": ["en", "hi"],
+  "baseline": {
+    "status": "verified_4x",
+    "motion_type": "ai_images_or_licensed_images_plus_ffmpeg_motion",
+    "daily_upload_blocking": false
+  },
   "providers": [
-    {"id":"agnes","status":"candidate"},
-    {"id":"kaggle","status":"candidate"},
-    {"id":"gemini_web","status":"candidate"},
-    {"id":"google_flow","status":"candidate"},
-    {"id":"hf_zerogpu","status":"candidate"}
-  ]
+    {"id":"agnes","status":"adapter_ready_optional_free_credential"},
+    {"id":"kaggle","status":"adapter_pending_optional_free_credential"},
+    {"id":"gemini_web","status":"optional_session_lane"},
+    {"id":"google_flow","status":"optional_session_lane"},
+    {"id":"hf_wan21_base","status":"live_generation_verified"},
+    {"id":"hf_wan22_i2v","status":"live_test_pending"},
+    {"id":"hf_ltx_zerogpu","status":"reserve_quota_limited"},
+    {"id":"hf_deeprat_zerogpu","status":"reserve_runtime_unstable"}
+  ],
+  "rules": {
+    "never_evade_provider_quotas": true,
+    "optional_ai_motion_failure_must_not_block_baseline": true,
+    "production_schedule_requires_youtube_oauth": true,
+    "production_schedule_enabled": false
+  }
 }
