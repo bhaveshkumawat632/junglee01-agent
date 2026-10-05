@@ -60,8 +60,15 @@ def main():
     existing=sorted([p for p in assets.iterdir() if p.suffix.lower() in (".jpg",".jpeg",".png",".webp")])
     for i in range(1,a.count+1):
         src=None
+        direct=[]
+        for ext in (".jpg",".jpeg",".png",".webp"):
+            p=assets/f"scene_{i:02d}{ext}"
+            if p.exists():
+                direct.append(p)
+        if direct:
+            src=direct[0]
         item=byidx.get(i)
-        if item:
+        if src is None and item:
             p=Path(item["local"])
             if p.exists(): src=p
         if src is None and existing:
