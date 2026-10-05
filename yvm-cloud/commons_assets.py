@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 import argparse, html, json, re, time
 from pathlib import Path
-from urllib.parse import urlparse
 import requests
 
 API="https://commons.wikimedia.org/w/api.php"
-UA="YVM-Cloud/1.0 (educational YouTube automation)"
-
+UA="YVM-Cloud/2.0 (https://github.com/bhaveshkumawat632/junglee01-agent)"
 STOP=set("""cinematic realistic vertical documentary photo photography shot scene camera lighting natural people person close macro wide dramatic premium modern no text logo logos readable abstract motion composition with and the of in on at from to a an for""".split())
 
 def clean_query(text):
@@ -14,17 +12,36 @@ def clean_query(text):
     words=[w for w in words if w.lower() not in STOP and len(w)>2]
     return " ".join(words[:7]) or "technology business"
 
-def search(query,limit=8):
+def get_json(params, attempts=5):
+    last=None
+    for attempt in range(1,attempts+1):
+        try:
+            r=requests.get(API,params=params,headers={"User-Agent":UA},timeout=30)
+            if r.status_code in (429,500,502,503,504):
+                retry=r.headers.get("Retry-After")
+                delay=float(retry) if retry and retry.isdigit() else min(12,1.5*(2**(attempt-1)))
+                print(f"commons retry status={r.status_code} attempt={attempt} sleep={delay}")
+                time.sleep(delay)
+                continue
+            r.raise_for_status()
+            return r.json()
+        except Exception as e:
+            last=e
+            if attempt<attempts:
+                time.sleep(min(12,1.5*(2**(attempt-1))))
+    raise RuntimeError(f"Commons API failed after retries: {last}")
+
+def search(query,limit=12):
     params={
-      "action":"query","format":"json","generator":"search",
-      "gsrsearch":query,"gsrnamespace":6,"gsrlimit":limit,
-      "prop":"imageinfo","iiprop":"url|size|extmetadata","iiurlwidth":1400
+      "action":"query","format":"json","formatversion":2,
+      "generator":"search","gsrsearch":query,"gsrnamespace":6,"gsrlimit":limit,
+      "prop":"imageinfo","iiprop":"url|size|extmetadata","iiurlwidth":1400,
+      "maxlag":5
     }
-    r=requests.get(API,params=params,headers={"User-Agent":UA},timeout=30)
-    r.raise_for_status()
-    pages=(r.json().get("query") or {}).get("pages") or {}
+    data=get_json(params)
+    pages=(data.get("query") or {}).get("pages") or []
     out=[]
-    for p in pages.values():
+    for p in pages:
         ii=(p.get("imageinfo") or [{}])[0]
         url=ii.get("thumburl") or ii.get("url")
         if not url:
@@ -47,13 +64,37 @@ def search(query,limit=8):
         })
     return out
 
-def download(url,path):
-    r=requests.get(url,headers={"User-Agent":UA},timeout=60)
-    r.raise_for_status()
-    if "image" not in r.headers.get("content-type",""):
-        raise RuntimeError("not an image")
-    path.write_bytes(r.content)
-    return len(r.content)
+def download(url,path,attempts=4):
+    last=None
+    for attempt in range(1,attempts+1):
+        try:
+            r=requests.get(url,headers={"User-Agent":UA},timeout=60)
+            if r.status_code in (429,500,502,503,504):
+                time.sleep(min(10,2*attempt))
+                continue
+            r.raise_for_status()
+            if "image" not in r.headers.get("content-type",""):
+                raise RuntimeError("not an image")
+            path.write_bytes(r.content)
+            return len(r.content)
+        except Exception as e:
+            last=e
+            if attempt<attempts:
+                time.sleep(min(10,2*attempt))
+    raise RuntimeError(f"image download failed: {last}")
+
+def existing_scene(out,index):
+    for ext in (".jpg",".jpeg",".png",".webp"):
+        p=out/f"scene_{index:02d}{ext}"
+        if p.exists() and p.stat().st_size>10000:
+            return p
+    return None
+
+def next_unused(candidates,used):
+    for c in candidates:
+        if c["url"] not in used:
+            return c
+    return None
 
 def main():
     ap=argparse.ArgumentParser()
@@ -68,22 +109,43 @@ def main():
         prompts.append(topic)
 
     out=Path(a.out_dir); out.mkdir(parents=True,exist_ok=True)
-    records=[]
-    used=set()
+    records=[]; used=set(); cache={}
+
+    def cached(q):
+        if q not in cache:
+            cache[q]=search(q)
+            time.sleep(0.8)
+        return cache[q]
+
+    # Search broad reusable pools once. This prevents repeated generic API calls.
+    fallback=[]
+    for q in (clean_query(topic),"technology business finance"):
+        try:
+            fallback.extend(cached(q))
+        except Exception as e:
+            print("fallback search warning",q,e)
+
     for i,prompt in enumerate(prompts[:a.count],1):
-        queries=[clean_query(prompt),clean_query(topic),"technology business finance"]
+        present=existing_scene(out,i)
+        if present:
+            records.append({
+                "index":i,"status":"existing_non_commons","prompt":prompt,
+                "local":str(present),"bytes":present.stat().st_size
+            })
+            continue
+
         chosen=None
-        for q in queries:
-            try:
-                for c in search(q):
-                    if c["url"] not in used:
-                        chosen=c; break
-                if chosen: break
-            except Exception as e:
-                print("search warning",q,e)
+        q=clean_query(prompt)
+        try:
+            chosen=next_unused(cached(q),used)
+        except Exception as e:
+            print("search warning",q,e)
+        if not chosen:
+            chosen=next_unused(fallback,used)
         if not chosen:
             records.append({"index":i,"status":"missing","prompt":prompt})
             continue
+
         ext=".png" if ".png" in chosen["url"].lower().split("?")[0] else ".jpg"
         dest=out/f"scene_{i:02d}{ext}"
         try:
@@ -94,12 +156,12 @@ def main():
             print(i,chosen["title"],size)
         except Exception as e:
             records.append({"index":i,"status":"missing","prompt":prompt,"error":str(e)})
-        time.sleep(0.15)
+        time.sleep(0.35)
 
     (out/"attribution.json").write_text(json.dumps(records,ensure_ascii=False,indent=2))
     good=sum(x.get("status") in ("ok","existing_non_commons") for x in records)
     print("ASSETS_OK",good,"OF",a.count)
-    if good < max(4,a.count//2):
+    if good < a.count:
         print("COMMONS_DEGRADED: procedural CPU fallback will fill missing scenes")
 
 if __name__=="__main__":
