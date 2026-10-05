@@ -84,7 +84,7 @@ def main():
         (td/"worker.py").write_text(worker.replace(marker,encoded,1),encoding="utf-8")
         metadata={
             "id":handle,
-            "title":"YVM LTX Daily Scene Batch",
+            "title":"YVM LTX Daily Batch",
             "code_file":"worker.py",
             "language":"python",
             "kernel_type":"script",
@@ -109,7 +109,7 @@ def main():
             low=status.lower()
             if "complete" in low:
                 break
-            if any(x in low for x in ("error","failed","cancel")):
+            if any(x in low for x in ("error","failed","cancel","permission","denied","forbidden","not found","cannot access","could not find")):
                 logs=run(["kaggle","kernels","logs",handle],check=False,capture=True)
                 (out/"kaggle_batch_logs.txt").write_text(
                     (logs.stdout or "")+"\n"+(logs.stderr or ""),
