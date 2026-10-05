@@ -1,0 +1,83 @@
+name: YVM Full Cinematic Cloud Dry Run
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/yvm-full-cinematic-dry-run.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yvm-kaggle-gpu
+  cancel-in-progress: false
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cloud production dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-noto-core
+          python -m pip install --disable-pip-version-check -r yvm-cloud/requirements.txt
+
+      - name: Confirm Kaggle no-card lane
+        run: |
+          test -n "$KAGGLE_API_TOKEN"
+          test -n "$KAGGLE_USERNAME"
+          kaggle quota
+          python - <<'PY'
+          import json
+          p=json.load(open("yvm-cloud/provider-policy.json"))
+          assert p["no_billing_details"] is True
+          assert p["paid_fallback_allowed"] is False
+          print("NO_CARD_POLICY=PASS")
+          PY
+
+      - name: Produce complete 12-scene bilingual cinematic package
+        run: |
+          python yvm-cloud/run_daily.py             --workdir out/daily             --scenes 12             --clip-duration 5             --final-duration 60             --free-video-bonus 2             --min-ai-motion-scenes 12
+
+      - name: Final package verification
+        run: |
+          python yvm-cloud/qc_video.py out/daily/render/final_en.mp4             --min-duration 59.5 --min-width 1000 --min-height 1800             --require-audio --video-codec h264 --audio-codec aac
+          python yvm-cloud/qc_video.py out/daily/render/final_hi.mp4             --min-duration 59.5 --min-width 1000 --min-height 1800             --require-audio --video-codec h264 --audio-codec aac
+          python yvm-cloud/qc_motion.py out/daily/visual_master.mp4
+          python yvm-cloud/qc_pair.py             --en-video out/daily/render/final_en.mp4             --hi-video out/daily/render/final_hi.mp4             --en-subtitles out/daily/render/subtitles_en.srt             --hi-subtitles out/daily/render/subtitles_hi.srt
+          python - <<'PY'
+          import json
+          r=json.load(open("out/daily/result.json"))
+          assert r["ai_video_upgrades"] == 12, r
+          assert "kaggle_t4x2_ltx_batch" in r.get("motion_providers",[]), r
+          assert r["payment_card_used"] is False
+          print("FULL_CINEMATIC_DRY_RUN=PASS")
+          PY
+
+      - name: Record remaining free quota
+        if: always()
+        run: kaggle quota || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: yvm-full-cinematic-dry-run
+          path: |
+            out/daily/plan.json
+            out/daily/result.json
+            out/daily/visual_master.mp4
+            out/daily/clips/kaggle_batch_result.json
+            out/daily/clips/scene_*.mp4
+            out/daily/render/final_en.mp4
+            out/daily/render/final_hi.mp4
+            out/daily/render/subtitles_en.srt
+            out/daily/render/subtitles_hi.srt
+          retention-days: 2
