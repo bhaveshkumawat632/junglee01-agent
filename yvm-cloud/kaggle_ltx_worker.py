@@ -46,23 +46,125 @@ def main():
     if not SRC.exists():
         run(["git","clone","--depth","1","https://github.com/Lightricks/LTX-Video.git",SRC])
 
-    patch_script = """
-import pathlib
-f1 = pathlib.Path('LTX-Video/ltx_video/inference.py')
-c1 = f1.read_text()
-c1 = c1.replace('text_encoder = text_encoder.to(device)', 'import torch\\n    text_encoder = text_encoder.to("cuda:1" if torch.cuda.device_count() > 1 else device)')
-f1.write_text(c1)
+    # Patch upstream LTX for Kaggle's two 15 GiB T4 GPUs.
+    # Upstream moves transformer + VAE + the large T5 encoder onto one GPU,
+    # which OOMs before generation begins. Put the T5 encoder on cuda:1 in
+    # BF16, keep transformer/VAE on cuda:0, and move prompt tensors back to
+    # cuda:0 after encoding.
+    inference_py=SRC/"ltx_video/inference.py"
+    source=inference_py.read_text()
 
-f2 = pathlib.Path('LTX-Video/ltx_video/pipelines/pipeline_ltx_video.py')
-c2 = f2.read_text()
-c2 = c2.replace('prompt_attention_mask = prompt_attention_mask.to(device)', 'prompt_attention_mask = prompt_attention_mask.to(self._execution_device)')
-c2 = c2.replace('prompt_embeds = prompt_embeds[0]', 'prompt_embeds = prompt_embeds[0].to(self._execution_device)')
-c2 = c2.replace('negative_prompt_embeds = negative_prompt_embeds[0]', 'negative_prompt_embeds = negative_prompt_embeds[0].to(self._execution_device)')
-c2 = c2.replace('self.text_encoder = self.text_encoder.to(self._execution_device)', 'pass')
-f2.write_text(c2)
-"""
-    Path("patch.py").write_text(patch_script)
-    run([sys.executable, "patch.py"])
+    source_replacements=[
+        (
+            '''    text_encoder = T5EncoderModel.from_pretrained(
+        text_encoder_model_name_or_path, subfolder="text_encoder"
+    )''',
+            '''    text_encoder = T5EncoderModel.from_pretrained(
+        text_encoder_model_name_or_path,
+        subfolder="text_encoder",
+        torch_dtype=torch.bfloat16,
+        low_cpu_mem_usage=True,
+    )''',
+            "text_encoder_bf16",
+        ),
+        (
+            '''    transformer = transformer.to(device)
+    vae = vae.to(device)
+    text_encoder = text_encoder.to(device)
+''',
+            '''    transformer = transformer.to(device)
+    vae = vae.to(device)
+    text_encoder_device = (
+        "cuda:1"
+        if torch.cuda.is_available() and torch.cuda.device_count() > 1
+        else "cpu"
+    )
+    text_encoder = text_encoder.to(text_encoder_device)
+''',
+            "dual_gpu_initial_placement",
+        ),
+        (
+            '''    pipeline = LTXVideoPipeline(**submodel_dict)
+    pipeline = pipeline.to(device)
+    return pipeline''',
+            '''    pipeline = LTXVideoPipeline(**submodel_dict)
+    return pipeline''',
+            "avoid_pipeline_wide_cuda_move",
+        ),
+    ]
+    for old,new,label in source_replacements:
+        if old not in source:
+            raise RuntimeError(f"LTX_PATCH_TARGET_MISSING={label}")
+        source=source.replace(old,new,1)
+    inference_py.write_text(source)
+
+    pipeline_py=SRC/"ltx_video/pipelines/pipeline_ltx_video.py"
+    psource=pipeline_py.read_text()
+    pipeline_replacements=[
+        (
+            '''        device = self._execution_device
+
+        self.video_scale_factor''',
+            '''        device = (
+            torch.device("cuda:0")
+            if torch.cuda.is_available()
+            else self._execution_device
+        )
+
+        self.video_scale_factor''',
+            "generation_device_cuda0",
+        ),
+        (
+            '''            prompt_attention_mask = text_inputs.attention_mask
+            prompt_attention_mask = prompt_attention_mask.to(text_enc_device)
+            prompt_attention_mask = prompt_attention_mask.to(device)
+
+            prompt_embeds = self.text_encoder(
+                text_input_ids.to(text_enc_device), attention_mask=prompt_attention_mask
+            )
+            prompt_embeds = prompt_embeds[0]''',
+            '''            prompt_attention_mask = text_inputs.attention_mask.to(text_enc_device)
+
+            prompt_embeds = self.text_encoder(
+                text_input_ids.to(text_enc_device), attention_mask=prompt_attention_mask
+            )
+            prompt_embeds = prompt_embeds[0]
+            prompt_attention_mask = prompt_attention_mask.to(device)''',
+            "positive_prompt_device_transfer",
+        ),
+        (
+            '''            negative_prompt_embeds = self.text_encoder(
+                uncond_input.input_ids.to(text_enc_device),
+                attention_mask=negative_prompt_attention_mask,
+            )
+            negative_prompt_embeds = negative_prompt_embeds[0]''',
+            '''            negative_prompt_embeds = self.text_encoder(
+                uncond_input.input_ids.to(text_enc_device),
+                attention_mask=negative_prompt_attention_mask,
+            )
+            negative_prompt_embeds = negative_prompt_embeds[0]
+            negative_prompt_attention_mask = negative_prompt_attention_mask.to(device)''',
+            "negative_prompt_device_transfer",
+        ),
+        (
+            '''        if self.text_encoder is not None:
+            self.text_encoder = self.text_encoder.to(self._execution_device)''',
+            '''        # YVM: text encoder already lives on cuda:1 (or CPU fallback).
+        # Do not move it onto cuda:0 before prompt encoding.''',
+            "preserve_text_encoder_device",
+        ),
+        (
+            '''        self.transformer = self.transformer.to(self._execution_device)''',
+            '''        self.transformer = self.transformer.to(device)''',
+            "transformer_cuda0",
+        ),
+    ]
+    for old,new,label in pipeline_replacements:
+        if old not in psource:
+            raise RuntimeError(f"LTX_PIPELINE_PATCH_TARGET_MISSING={label}")
+        psource=psource.replace(old,new,1)
+    pipeline_py.write_text(psource)
+    print("LTX_T4_DUAL_GPU_PATCH=APPLIED",flush=True)
 
     # Official inference dependencies.
     run([sys.executable,"-m","pip","install","-q","-e",".[inference]","accelerate"],cwd=SRC)
