@@ -34,7 +34,7 @@ def get_json(params, attempts=5):
 def search(query,limit=12):
     params={
       "action":"query","format":"json","formatversion":2,
-      "generator":"search","gsrsearch":query,"gsrnamespace":6,"gsrlimit":limit,
+      "generator":"search","gsrsearch":f"{query} filetype:bitmap","gsrnamespace":6,"gsrlimit":limit,
       "prop":"imageinfo","iiprop":"url|size|extmetadata","iiurlwidth":1400,
       "maxlag":5
     }
@@ -49,18 +49,26 @@ def search(query,limit=12):
         low=url.lower().split("?")[0]
         if not low.endswith((".jpg",".jpeg",".png",".webp")):
             continue
+        title=p.get("title","")
+        title_low=title.lower()
+        if title_low.endswith((".pdf",".djvu",".tif",".tiff",".xcf",".psd")):
+            continue
+        width=ii.get("thumbwidth") or ii.get("width") or 0
+        height=ii.get("thumbheight") or ii.get("height") or 0
+        if int(width or 0) < 300 or int(height or 0) < 300:
+            continue
         meta=ii.get("extmetadata") or {}
         def m(k):
             return html.unescape(re.sub("<[^>]+>","",str((meta.get(k) or {}).get("value","")))).strip()
         out.append({
-          "title":p.get("title",""),
+          "title":title,
           "url":url,
-          "page_url":"https://commons.wikimedia.org/wiki/"+p.get("title","").replace(" ","_"),
+          "page_url":"https://commons.wikimedia.org/wiki/"+title.replace(" ","_"),
           "artist":m("Artist"),
           "license":m("LicenseShortName") or m("UsageTerms"),
           "credit":m("Credit"),
-          "width":ii.get("thumbwidth") or ii.get("width"),
-          "height":ii.get("thumbheight") or ii.get("height"),
+          "width":width,
+          "height":height,
         })
     return out
 
@@ -120,7 +128,7 @@ def main():
 
     # Search broad reusable pools once. This prevents repeated generic API calls.
     fallback=[]
-    for q in (clean_query(topic),"technology business finance"):
+    for q in (clean_query(topic),f"{clean_query(topic)} historical", "stock exchange trading floor finance computer"):
         try:
             fallback.extend(cached(q))
         except Exception as e:
