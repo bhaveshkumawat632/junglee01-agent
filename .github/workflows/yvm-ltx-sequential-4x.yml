@@ -26,7 +26,7 @@ jobs:
           for CYCLE in 1 2 3 4; do
             SEED=$((3000 + CYCLE))
             echo "=== CYCLE $CYCLE ==="
-            python yvm-cloud/ltx_zerogpu.py               --prompt "1990s Wall Street trading floor, documentary realism, natural human traders, CRT monitors, cinematic camera motion, vertical composition, authentic office lighting, no text, no logo, variation $CYCLE"               --output "out/seq_${CYCLE}.mp4"               --duration 5               --seed "$SEED"
+            python yvm-cloud/ltx_zerogpu.py               --prompt "1990s Wall Street trading floor, documentary realism, natural human traders, CRT monitors, cinematic camera motion, vertical composition, authentic office lighting, no text, no logo, variation $CYCLE"               --output "out/seq_${CYCLE}.mp4"               --duration 5               --seed "$SEED" --attempts 2
             python yvm-cloud/qc_video.py "out/seq_${CYCLE}.mp4" --min-duration 4 --min-width 700 --min-height 1200
           done
       - name: Capacity gate
@@ -38,3 +38,5 @@ jobs:
           name: ltx-sequential-4x
           path: out/seq_*.mp4
           retention-days: 1
+
+# retry-validation-v2
