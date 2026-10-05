@@ -18,7 +18,8 @@ jobs:
       matrix:
         space:
           - zai-org/CogVideoX-5B-Space
-          - zerogpu-aoti/Wan2.2-14B-Fast
+          - RioShiina/LTX-2.5
+          - techfreakworm/LTX2.3-Studio
     steps:
       - uses: actions/checkout@v4
       - name: Install client
