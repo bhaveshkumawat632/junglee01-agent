@@ -1,0 +1,33 @@
+name: YVM LLM7 Live Model Probe
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/yvm-llm7-live-model.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fetch live models and call first text model
+        run: |
+          curl -sS https://api.llm7.io/v1/models -H "Authorization: Bearer free" -o /tmp/models.json
+          python - <<'PY'
+          import json
+          d=json.load(open("/tmp/models.json"))
+          models=d.get("data",d if isinstance(d,list) else [])
+          ids=[m.get("id") for m in models if isinstance(m,dict) and m.get("id")]
+          print("MODELS",ids[:30])
+          if not ids:
+              raise SystemExit("No models returned")
+          open("/tmp/model.txt","w").write(ids[0])
+          PY
+          MODEL=$(cat /tmp/model.txt)
+          CODE=$(curl -sS -o /tmp/resp.json -w "%{http_code}"             https://api.llm7.io/v1/chat/completions             -H "Authorization: Bearer free"             -H "Content-Type: application/json"             -d "{\"model\":\"$MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Return only LLM7_LIVE_OK\"}],\"max_tokens\":30}")
+          echo "HTTP=$CODE MODEL=$MODEL"
+          cat /tmp/resp.json
