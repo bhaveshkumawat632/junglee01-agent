@@ -36,12 +36,13 @@ jobs:
 
       - name: Produce English and Hindi Shorts
         run: |
-          python yvm-cloud/run_daily.py             --workdir out/daily             --scenes 12             --clip-duration 5             --final-duration 60             --free-video-bonus 2
+          python yvm-cloud/run_daily.py             --workdir out/daily             --scenes 12             --clip-duration 5             --final-duration 60             --free-video-bonus 2             --min-ai-motion-scenes 12
 
       - name: Verify final pair before publishing
         run: |
-          python yvm-cloud/qc_video.py out/daily/render/final_en.mp4 --min-duration 59.5 --min-width 1000 --min-height 1800 --require-audio
-          python yvm-cloud/qc_video.py out/daily/render/final_hi.mp4 --min-duration 59.5 --min-width 1000 --min-height 1800 --require-audio
+          python yvm-cloud/qc_video.py out/daily/render/final_en.mp4 --min-duration 59.5 --min-width 1000 --min-height 1800 --require-audio --video-codec h264 --audio-codec aac
+          python yvm-cloud/qc_video.py out/daily/render/final_hi.mp4 --min-duration 59.5 --min-width 1000 --min-height 1800 --require-audio --video-codec h264 --audio-codec aac
+          python yvm-cloud/qc_pair.py --en-video out/daily/render/final_en.mp4 --hi-video out/daily/render/final_hi.mp4 --en-subtitles out/daily/render/subtitles_en.srt --hi-subtitles out/daily/render/subtitles_hi.srt
 
       - name: Upload production package artifact
         uses: actions/upload-artifact@v4
