@@ -21,7 +21,7 @@ It does not modify the existing local YVM scripts or services.
 - No-key LLM7 live model discovery and inference
 - 12-scene bilingual daily planning
 - Google Trends + Google News research feeds
-- Keyless Pollinations image generation
+- Procedural no-card visual fallback
 - Wikimedia Commons licensed-media fallback
 - One public LTX-2.5 ZeroGPU video generation with valid H.264/AAC output
 - Keyless Wan 2.1 base text-to-video generation with real vertical MP4 QC PASS
@@ -31,7 +31,7 @@ It does not modify the existing local YVM scripts or services.
 ### DEGRADED / RESERVE ONLY
 - Hugging Face LTX ZeroGPU: single generation works, but the legitimate same-runner sequential capacity test hit the anonymous ZeroGPU quota on cycle 3. It is a bonus/rescue lane, not the 4x backbone.
 - DeepRat LTX ZeroGPU: API discovery works; live generation currently returns a runtime error, so it is disabled from production weighting.
-- Pollinations legacy text route: intermittent 500 error; LLM7 is the active keyless planner instead.
+- Pollinations legacy image endpoint now returns HTTP 402 and is disabled by policy; the system does not switch to a paid endpoint.
 
 ### READY BUT REQUIRES FREE ACCOUNT CREDENTIAL
 - Agnes AI video: adapter implemented. The service requires a free Agnes API key; no payment card is part of the design.
@@ -43,8 +43,8 @@ It does not modify the existing local YVM scripts or services.
 1. Research: Google Trends + Google News.
 2. Script/scene planner: keyless LLM7; deterministic fallback if unavailable.
 3. Guaranteed visual baseline:
-   - keyless AI images first,
-   - Wikimedia Commons for any missing visual,
+   - Wikimedia Commons licensed visuals with retry/caching,
+   - procedural generated fallback for any missing visual,
    - CPU motion rendering in GitHub Actions.
 4. Video enhancement:
    - Agnes when configured,
