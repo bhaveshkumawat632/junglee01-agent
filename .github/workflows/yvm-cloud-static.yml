@@ -15,16 +15,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Compile all Python files
         run: python -m py_compile yvm-cloud/*.py
-      - name: Validate JSON config
-        run: python -m json.tool yvm-cloud/config.json >/dev/null
-      - name: Enforce no-card policy
+
+      - name: Validate JSON configs and no-card policy
         run: |
+          python -m json.tool yvm-cloud/config.json >/dev/null
+          python -m json.tool yvm-cloud/provider-policy.json >/dev/null
           python - <<'PY'
           import json
-          d=json.load(open("yvm-cloud/config.json"))
-          assert d["providers"]["paid_fallback"] is False
-          assert d["providers"]["billing_details_allowed"] is False
+          cfg=json.load(open("yvm-cloud/config.json"))
+          pol=json.load(open("yvm-cloud/provider-policy.json"))
+          assert cfg["capacity_policy"]["paid_fallback"] is False
+          assert cfg["capacity_policy"]["billing_details_allowed"] is False
+          assert cfg["capacity_policy"]["required_multiple"] == 4
+          assert pol["no_billing_details"] is True
+          assert pol["paid_fallback_allowed"] is False
+          assert pol["required_capacity_multiple"] == 4
           print("NO_CARD_POLICY=PASS")
+          print("CAPACITY_POLICY=4X")
           PY
+
+      - name: Install Python dependencies
+        run: python -m pip install --disable-pip-version-check -r yvm-cloud/requirements.txt
+
+      - name: YouTube uploader dry-run
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          mkdir -p out/static
+          ffmpeg -nostdin -y -f lavfi -i "color=c=black:s=1080x1920:r=30:d=2" -f lavfi -i "anullsrc=r=48000:cl=stereo" -t 2 -c:v libx264 -pix_fmt yuv420p -c:a aac out/static/test.mp4
+          python yvm-cloud/youtube_upload.py             --file out/static/test.mp4             --title "YVM uploader dry run"             --description "Static validation only"             --tags "yvm,test"             --privacy private             --language en             --dry-run
+
+      - name: Upload pair CLI compile smoke
+        run: python yvm-cloud/upload_pair.py --help >/dev/null
