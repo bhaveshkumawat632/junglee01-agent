@@ -1,0 +1,87 @@
+name: YVM Vidu Claw-Pass Capacity Gate
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/yvm-vidu-capacity.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  capacity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      VIDU_TOKEN: ${{ secrets.VIDU_TOKEN }}
+      VIDU_BASE_URL: https://service.vidu.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Credential gate
+        id: cred
+        run: |
+          if [ -n "$VIDU_TOKEN" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "VIDU_TOKEN_CONFIGURED=YES"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "VIDU_TOKEN_CONFIGURED=NO"
+          fi
+
+      - name: Install Vidu CLI
+        if: steps.cred.outputs.ready == 'true'
+        run: |
+          npm install -g vidu-cli@latest
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          vidu-cli --help >/dev/null
+
+      - name: Measure claw-pass capacity
+        if: steps.cred.outputs.ready == 'true'
+        id: quota
+        run: |
+          mkdir -p out
+          vidu-cli quota pass > out/quota.json
+          python - <<'PY'
+          import json
+          d=json.load(open("out/quota.json"))
+          assert d.get("ok") is True
+          has=bool(d.get("has_pass"))
+          daily=int(d.get("daily_quota_seconds") or 0)
+          remain=int(d.get("remain_seconds") or 0)
+          print("VIDU_HAS_CLAW_PASS="+str(has).lower())
+          print("VIDU_DAILY_QUOTA_SECONDS="+str(daily))
+          print("VIDU_REMAIN_SECONDS="+str(remain))
+          print("VIDU_4X_DAILY_VISUAL_CAPACITY="+("PASS" if has and daily>=240 else "FAIL"))
+          open("out/capacity.txt","w").write(
+              f"has_pass={has}\ndaily_quota_seconds={daily}\nremain_seconds={remain}\n"
+              f"required_4x_seconds=240\ncapacity_pass={has and daily>=240}\n"
+          )
+          if has and remain >= 32:
+              open("/tmp/live-ok","w").write("1")
+          PY
+          if [ -f /tmp/live-ok ]; then
+            echo "live=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "live=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Four live 8-second generation checks
+        if: steps.cred.outputs.ready == 'true' && steps.quota.outputs.live == 'true'
+        run: |
+          set -e
+          mkdir -p out/live
+          for i in 1 2 3 4; do
+            python yvm-cloud/vidu_video.py               --prompt "1990s Wall Street trading floor documentary realism, professional adult traders, CRT terminals, dynamic camera motion, vertical composition, no logo, no readable text, variation $i"               --duration 8               --output "out/live/vidu_${i}.mp4"
+            python yvm-cloud/qc_video.py "out/live/vidu_${i}.mp4"               --min-duration 7.5 --min-width 900 --min-height 1500
+          done
+          echo "VIDU_LIVE_4_CLIPS=PASS"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: yvm-vidu-capacity
+          path: out/
+          retention-days: 1
