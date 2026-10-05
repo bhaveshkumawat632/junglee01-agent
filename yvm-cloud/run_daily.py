@@ -60,6 +60,7 @@ def main():
     # The legacy keyless Pollinations image endpoint began returning HTTP 402 and is
     # intentionally disabled rather than silently moving to a paid/authenticated path.
     run([sys.executable,HERE/"commons_assets.py","--plan",plan_path,"--out-dir",assets,"--count",str(a.scenes)])
+    run([sys.executable,HERE/"procedural_assets.py","--plan",plan_path,"--out-dir",assets,"--count",str(a.scenes)])
     run([sys.executable,HERE/"images_to_clips.py","--assets",assets,"--out-dir",clips,"--duration",str(a.clip_duration),"--count",str(a.scenes)])
 
     # Enhancement lane. With Agnes configured, upgrade every scene.
