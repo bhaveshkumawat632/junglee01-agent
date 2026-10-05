@@ -1,0 +1,47 @@
+name: YVM Cloud Daily Production
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Hard no-card policy
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open("yvm-cloud/provider-policy.json"))
+          assert p["no_billing_details"] is True
+          assert p["paid_fallback_allowed"] is False
+          print("NO_CARD_POLICY=PASS")
+          PY
+
+      - name: Require YouTube OAuth
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: |
+          python yvm-cloud/youtube_upload.py
+
+      - name: Provider selection
+        env:
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+          GEMINI_WEB_COOKIE: ${{ secrets.GEMINI_WEB_COOKIE }}
+          FLOW_CDP_URL: ${{ secrets.FLOW_CDP_URL }}
+        run: |
+          python yvm-cloud/orchestrator.py
+
+      - name: Production intentionally gated
+        run: |
+          echo "Cloud production framework is ready."
+          echo "Actual generator adapters remain locked until each provider passes the 4x burn-in."
+          exit 1
