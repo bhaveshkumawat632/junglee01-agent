@@ -29,7 +29,7 @@ jobs:
           test -n "$KAGGLE_USERNAME"
           python -m pip install --disable-pip-version-check -q kaggle
 
-      - name: Build 432x768 private benchmark kernel
+      - name: Build 416x736 private benchmark kernel
         run: |
           rm -rf /tmp/yvm-kaggle-quality
           mkdir -p /tmp/yvm-kaggle-quality
@@ -39,7 +39,7 @@ jobs:
           p=Path("/tmp/yvm-kaggle-quality/worker.py")
           s=p.read_text()
           old='"--height","576",\n        "--width","320",'
-          new='"--height","768",\n        "--width","432",'
+          new='"--height","736",\n        "--width","416",'
           if old not in s:
               raise SystemExit("QUALITY_VARIANT_PATCH_TARGET_MISSING")
           p.write_text(s.replace(old,new,1))
@@ -60,7 +60,7 @@ jobs:
           open("/tmp/yvm-kaggle-quality/kernel-metadata.json","w").write(json.dumps(meta,indent=2))
           PY
 
-      - name: Push 432x768 benchmark to T4x2
+      - name: Push 416x736 benchmark to T4x2
         run: |
           kaggle kernels push             -p /tmp/yvm-kaggle-quality             --timeout 3600             --accelerator NvidiaTeslaT4
 
@@ -96,9 +96,9 @@ jobs:
           test -f out/kaggle-quality/yvm_kaggle_result.json
           test -f out/kaggle-quality/yvm_kaggle_clip.mp4
           cat out/kaggle-quality/yvm_kaggle_result.json
-          python yvm-cloud/qc_video.py out/kaggle-quality/yvm_kaggle_clip.mp4             --min-duration 3 --min-width 420 --min-height 750
+          python yvm-cloud/qc_video.py out/kaggle-quality/yvm_kaggle_clip.mp4             --min-duration 3 --min-width 400 --min-height 700
           python yvm-cloud/qc_motion.py out/kaggle-quality/yvm_kaggle_clip.mp4
-          echo "KAGGLE_LTX_432X768_QUALITY=PASS"
+          echo "KAGGLE_LTX_416X736_QUALITY=PASS"
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -107,4 +107,4 @@ jobs:
           path: out/kaggle-quality/
           retention-days: 1
 
-# trigger: period-fidelity-2026-10-05
+# trigger: safe-grid-416x736-2026-10-05
