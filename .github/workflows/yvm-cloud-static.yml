@@ -1,0 +1,30 @@
+name: YVM Cloud Static Validation
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "yvm-cloud/**"
+      - ".github/workflows/yvm-cloud-static.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile all Python files
+        run: python -m py_compile yvm-cloud/*.py
+      - name: Validate JSON config
+        run: python -m json.tool yvm-cloud/config.json >/dev/null
+      - name: Enforce no-card policy
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open("yvm-cloud/config.json"))
+          assert d["providers"]["paid_fallback"] is False
+          assert d["providers"]["billing_details_allowed"] is False
+          print("NO_CARD_POLICY=PASS")
+          PY
