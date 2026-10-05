@@ -124,3 +124,5 @@ jobs:
           name: yvm-kaggle-ltx-capacity
           path: out/kaggle-capacity/
           retention-days: 1
+
+# manual-capacity-retry 2026-10-05
