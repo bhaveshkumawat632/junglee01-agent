@@ -72,13 +72,17 @@ def main():
         dest=clips/f"scene_{i:02d}.mp4"
         tmp=clips/f"scene_{i:02d}.ai.mp4"
         try:
-            run([
+            ref=assets/f"scene_{i:02d}.jpg"
+            cmd=[
                 sys.executable,HERE/"failover_generate.py",
                 "--prompt",prompts[i-1],
                 "--output",tmp,
                 "--duration",str(a.clip_duration),
                 "--seed",str(1000+i),
-            ])
+            ]
+            if ref.exists():
+                cmd += ["--reference-image",ref]
+            run(cmd)
             run([sys.executable,HERE/"qc_video.py",tmp,"--min-duration","2","--min-width","400","--min-height","700"])
             tmp.replace(dest)
             upgraded+=1
