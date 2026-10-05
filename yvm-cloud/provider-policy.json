@@ -24,7 +24,7 @@
     },
     {
       "id": "kaggle",
-      "status": "benchmark_worker_ready_optional_free_credential"
+      "status": "single_clip_motion_verified_dual_t4_batch_capacity_testing"
     },
     {
       "id": "gemini_web",
@@ -55,6 +55,10 @@
     "never_evade_provider_quotas": true,
     "optional_ai_motion_failure_must_not_block_baseline": true,
     "production_schedule_requires_youtube_oauth": true,
-    "production_schedule_enabled": false
+    "production_schedule_enabled": false,
+    "public_upload_requires_motion_quality_gate": true,
+    "weak_fallback_public_upload_allowed": false,
+    "production_requires_bilingual_subtitles": true,
+    "production_requires_distinct_scene_gate": true
   }
 }
