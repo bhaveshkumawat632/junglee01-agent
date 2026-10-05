@@ -21,11 +21,18 @@ def main():
     ap.add_argument("--prompt",required=True)
     ap.add_argument("--output",required=True)
     ap.add_argument("--seed",type=int,default=42)
-    ap.add_argument("--frames",type=int,default=49)
+    ap.add_argument("--frames",type=int)
+    ap.add_argument("--duration",type=float,default=3.0)
     ap.add_argument("--steps",type=int,default=8)
     ap.add_argument("--width",type=int,default=480)
     ap.add_argument("--height",type=int,default=832)
     a=ap.parse_args()
+
+    frames=a.frames
+    if frames is None:
+        raw=max(21,min(81,round(a.duration*16)))
+        frames=max(21,min(81,4*round((raw-1)/4)+1))
+    print(f"WAN_CONFIG frames={frames} duration_target={a.duration} steps={a.steps}",flush=True)
 
     client=Client(SPACE,verbose=False)
     result=client.predict(
@@ -34,7 +41,7 @@ def main():
         "cartoon, anime, text, watermark, logo, distorted anatomy, deformed face, extra fingers, blurry",
         a.width,
         a.height,
-        a.frames,
+        frames,
         a.steps,
         5.0,
         a.seed,
