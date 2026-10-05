@@ -1,12 +1,29 @@
 #!/usr/bin/env python3
-import argparse, json, subprocess, sys, time
+import argparse, json, os, subprocess, sys, time
 from pathlib import Path
 
 HERE=Path(__file__).resolve().parent
 
-def run(cmd):
+def run(cmd, check=True):
     print("+"," ".join(map(str,cmd)),flush=True)
-    subprocess.run([str(x) for x in cmd],check=True)
+    return subprocess.run([str(x) for x in cmd],check=check)
+
+def credits_from(path):
+    if not path.exists():
+        return ""
+    rows=json.loads(path.read_text())
+    lines=[]
+    for x in rows:
+        if x.get("status")!="ok":
+            continue
+        title=x.get("title","Wikimedia Commons media")
+        artist=x.get("artist") or "Wikimedia Commons contributor"
+        lic=x.get("license") or "Wikimedia Commons license"
+        page=x.get("page_url") or ""
+        lines.append(f"{title} — {artist} — {lic} — {page}")
+    if not lines:
+        return ""
+    return "Visual source credits (Wikimedia Commons):\n" + "\n".join(lines)
 
 def main():
     ap=argparse.ArgumentParser()
@@ -15,12 +32,15 @@ def main():
     ap.add_argument("--scenes",type=int,default=12)
     ap.add_argument("--clip-duration",type=float,default=5)
     ap.add_argument("--final-duration",type=int,default=60)
+    ap.add_argument("--free-video-bonus",type=int,default=2)
     a=ap.parse_args()
 
     wd=Path(a.workdir)
     clips=wd/"clips"
+    assets=wd/"assets"
     wd.mkdir(parents=True,exist_ok=True)
     clips.mkdir(parents=True,exist_ok=True)
+    assets.mkdir(parents=True,exist_ok=True)
 
     plan_path=wd/"plan.json"
     cmd=[sys.executable,HERE/"daily_plan.py","--output",plan_path]
@@ -31,36 +51,45 @@ def main():
     prompts=list(plan["scene_prompts"])
     if not prompts:
         raise SystemExit("No scene prompts in plan")
-
-    # Ensure enough prompts without inventing new facts: repeat visual motifs only.
     while len(prompts)<a.scenes:
         prompts.extend(plan["scene_prompts"])
     prompts=prompts[:a.scenes]
 
-    generated=[]
-    for i,prompt in enumerate(prompts,1):
-        out=clips/f"scene_{i:02d}.mp4"
-        if out.exists():
-            try:
-                run([sys.executable,HERE/"qc_video.py",out,"--min-duration","2","--min-width","400","--min-height","700"])
-                generated.append(out)
-                continue
-            except Exception:
-                out.unlink(missing_ok=True)
-        run([
-            sys.executable,HERE/"failover_generate.py",
-            "--prompt",prompt,
-            "--output",out,
-            "--duration",str(a.clip_duration),
-            "--seed",str(1000+i),
-        ])
-        run([sys.executable,HERE/"qc_video.py",out,"--min-duration","2","--min-width","400","--min-height","700"])
-        generated.append(out)
-        time.sleep(2)
+    # Guaranteed no-card visual baseline: freely licensed Commons assets + CPU motion.
+    run([sys.executable,HERE/"commons_assets.py","--plan",plan_path,"--out-dir",assets,"--count",str(a.scenes)])
+    run([sys.executable,HERE/"images_to_clips.py","--assets",assets,"--out-dir",clips,"--duration",str(a.clip_duration),"--count",str(a.scenes)])
+
+    # Enhancement lane. With Agnes configured, upgrade every scene.
+    # Without Agnes, use only a small legitimate ZeroGPU bonus and keep the Commons baseline if quota is unavailable.
+    upgrade_count=a.scenes if os.getenv("AGNES_API_KEY") else min(a.free_video_bonus,a.scenes)
+    upgraded=0
+    for i in range(1,upgrade_count+1):
+        dest=clips/f"scene_{i:02d}.mp4"
+        tmp=clips/f"scene_{i:02d}.ai.mp4"
+        try:
+            run([
+                sys.executable,HERE/"failover_generate.py",
+                "--prompt",prompts[i-1],
+                "--output",tmp,
+                "--duration",str(a.clip_duration),
+                "--seed",str(1000+i),
+            ])
+            run([sys.executable,HERE/"qc_video.py",tmp,"--min-duration","2","--min-width","400","--min-height","700"])
+            tmp.replace(dest)
+            upgraded+=1
+        except Exception as e:
+            print(f"AI upgrade scene {i} skipped: {e}",file=sys.stderr)
+            tmp.unlink(missing_ok=True)
+        time.sleep(1)
+
+    ordered=[clips/f"scene_{i:02d}.mp4" for i in range(1,a.scenes+1)]
+    for p in ordered:
+        if not p.exists():
+            raise SystemExit(f"Missing baseline scene: {p}")
 
     visual=wd/"visual_master.mp4"
-    run([sys.executable,HERE/"stitch.py","--output",visual,*generated])
-    run([sys.executable,HERE/"qc_video.py",visual,"--min-duration","10","--min-width","1000","--min-height","1800"])
+    run([sys.executable,HERE/"stitch.py","--output",visual,*ordered])
+    run([sys.executable,HERE/"qc_video.py",visual,"--min-duration",str(max(10,a.scenes*a.clip_duration-1)),"--min-width","1000","--min-height","1800"])
 
     en=wd/"script_en.txt"
     hi=wd/"script_hi.txt"
@@ -84,19 +113,26 @@ def main():
             "--min-width","1000","--min-height","1800","--require-audio"
         ])
 
+    credits=credits_from(assets/"attribution.json")
+    en_desc=(plan["description_en"].strip()+"\n\n"+credits).strip()
+    hi_desc=(plan["description_hi"].strip()+"\n\n"+credits).strip()
+
     result={
         "status":"READY_FOR_UPLOAD",
         "topic":plan["topic"],
         "planner":plan.get("planner"),
         "title_en":plan["title_en"],
         "title_hi":plan["title_hi"],
-        "description_en":plan["description_en"],
-        "description_hi":plan["description_hi"],
+        "description_en":en_desc,
+        "description_hi":hi_desc,
         "tags_en":plan["tags_en"],
         "tags_hi":plan["tags_hi"],
         "final_en":str(render_dir/"final_en.mp4"),
         "final_hi":str(render_dir/"final_hi.mp4"),
-        "scene_count":len(generated),
+        "scene_count":len(ordered),
+        "ai_video_upgrades":upgraded,
+        "commons_attribution":str(assets/"attribution.json"),
+        "payment_card_used":False,
     }
     (wd/"result.json").write_text(json.dumps(result,ensure_ascii=False,indent=2))
     print(json.dumps(result,ensure_ascii=False,indent=2))
