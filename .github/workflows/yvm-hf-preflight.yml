@@ -36,3 +36,5 @@ jobs:
           info=c.view_api(all_endpoints=True, print_info=False)
           print(info)
           PY
+
+# preflight trigger
