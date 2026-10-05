@@ -41,6 +41,13 @@ def wrap_srt(path, width=34):
         out.append("\n".join(head+wrapped))
     Path(path).write_text("\n\n".join(out)+"\n",encoding="utf-8")
 
+def media_duration(path):
+    p=subprocess.run([
+        "ffprobe","-v","error","-show_entries","format=duration",
+        "-of","default=nw=1:nk=1",str(path)
+    ],capture_output=True,text=True,check=True)
+    return float(p.stdout.strip() or 0)
+
 def escape_subtitle_path(path):
     s=str(Path(path).resolve()).replace("\\","/")
     return s.replace(":","\\:").replace("'","\\'")
@@ -73,6 +80,8 @@ def main():
     ap.add_argument("--hi-script",required=True)
     ap.add_argument("--out-dir",default="out")
     ap.add_argument("--duration",type=int,default=60)
+    ap.add_argument("--min-speech-seconds",type=float,default=0)
+    ap.add_argument("--max-speech-seconds",type=float,default=0)
     a=ap.parse_args()
     out=Path(a.out_dir); out.mkdir(parents=True,exist_ok=True)
     en_text=Path(a.en_script).read_text(encoding="utf-8").strip()
@@ -87,6 +96,21 @@ def main():
 
     tts(en_text,"en-US-AriaNeural",en_audio,en_srt)
     tts(hi_text,"hi-IN-SwaraNeural",hi_audio,hi_srt)
+
+    en_duration=media_duration(en_audio)
+    hi_duration=media_duration(hi_audio)
+    for lang,dur in (("English",en_duration),("Hindi",hi_duration)):
+        if a.min_speech_seconds and dur<a.min_speech_seconds:
+            raise SystemExit(
+                f"{lang} narration too short: {dur:.3f}s < {a.min_speech_seconds}s"
+            )
+        if a.max_speech_seconds and dur>a.max_speech_seconds:
+            raise SystemExit(
+                f"{lang} narration too long: {dur:.3f}s > {a.max_speech_seconds}s"
+            )
+    print(f"EN_SPEECH_SECONDS={en_duration:.3f}")
+    print(f"HI_SPEECH_SECONDS={hi_duration:.3f}")
+
     wrap_srt(en_srt,34)
     wrap_srt(hi_srt,28)
 
