@@ -1,0 +1,37 @@
+name: YVM Free LLM Preflight
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/yvm-free-llm-preflight.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe LLM7 anonymous-compatible route
+        continue-on-error: true
+        run: |
+          CODE=$(curl -sS -o /tmp/llm7.json -w "%{http_code}"             https://api.llm7.io/v1/chat/completions             -H "Authorization: Bearer free"             -H "Content-Type: application/json"             -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Return only: LLM7_OK"}],"max_tokens":20}')
+          echo "LLM7_HTTP=$CODE"
+          head -c 1000 /tmp/llm7.json || true
+          echo
+      - name: Probe llmfaucet anonymous route
+        continue-on-error: true
+        run: |
+          CODE=$(curl -sS -o /tmp/faucet.json -w "%{http_code}"             https://api.llmfaucet.dev/v1/chat/completions             -H "Authorization: Bearer free"             -H "Content-Type: application/json"             -d '{"model":"auto:fast","messages":[{"role":"user","content":"Return only: FAUCET_OK"}],"max_tokens":20}')
+          echo "FAUCET_HTTP=$CODE"
+          head -c 1000 /tmp/faucet.json || true
+          echo
+      - name: Probe legacy Pollinations keyless route
+        continue-on-error: true
+        run: |
+          CODE=$(curl -sS -o /tmp/poll.json -w "%{http_code}"             https://text.pollinations.ai/openai             -H "Content-Type: application/json"             -d '{"model":"openai","messages":[{"role":"user","content":"Return only: POLL_OK"}],"max_tokens":20}')
+          echo "POLL_HTTP=$CODE"
+          head -c 1000 /tmp/poll.json || true
+          echo
