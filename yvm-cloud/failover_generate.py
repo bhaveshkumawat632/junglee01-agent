@@ -21,6 +21,20 @@ def main():
     seed=a.seed if a.seed >= 0 else 42
     errors=[]
 
+    # Optional Vidu lane. vidu_video.py explicitly forces claw_pass and
+    # refuses to fall back to normal credits.
+    if os.getenv("VIDU_TOKEN"):
+        try:
+            cmd=[sys.executable,HERE/"vidu_video.py",
+                 "--prompt",a.prompt,"--output",out,
+                 "--duration",str(max(1,min(16,int(round(a.duration)))))]
+            run(cmd)
+            print("PROVIDER=vidu_claw_pass")
+            return
+        except Exception as e:
+            errors.append(f"vidu:{e}")
+            out.unlink(missing_ok=True)
+
     # Optional free Agnes lane when the user has configured a no-card key.
     if os.getenv("AGNES_API_KEY"):
         try:
