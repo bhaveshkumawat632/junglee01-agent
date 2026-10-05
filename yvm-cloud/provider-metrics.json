@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "measured_at_utc": "2026-10-05T00:56:00Z",
+  "baseline": {
+    "four_complete_daily_cycles": "pass",
+    "cycles": 4,
+    "final_outputs": 8,
+    "languages": ["en", "hi"],
+    "resolution": "1080x1920",
+    "duration_seconds": 60,
+    "no_card": true
+  },
+  "motion_lanes": {
+    "hf_wan21_base": {
+      "live_generation": "pass",
+      "safe_model": "wan-base",
+      "test_1": {
+        "resolution": "480x832",
+        "frames": 49,
+        "fps": 16,
+        "steps": 8,
+        "output_duration_seconds": 3.0625,
+        "reported_gpu_seconds": 25.8
+      },
+      "efficiency_test": {
+        "resolution": "480x832",
+        "frames": 29,
+        "fps": 16,
+        "steps": 6,
+        "output_duration_seconds": 1.8125,
+        "reported_gpu_seconds": 12.6
+      }
+    },
+    "hf_wan22_i2v": {
+      "live_generation": "pass",
+      "resolution": "480x832",
+      "steps": 4,
+      "output_duration_seconds": 2.0625,
+      "reference_image_required": true
+    },
+    "hf_ltx_zerogpu": {
+      "live_generation": "pass",
+      "resolution": "768x1344",
+      "output_duration_seconds": 5.041667,
+      "reported_execution_seconds": 65.88,
+      "same_runner_sequential_capacity": "quota_limited",
+      "observed_successful_clips_before_quota_block": 2,
+      "production_weight": "reserve_only"
+    },
+    "hf_deeprat_zerogpu": {
+      "api_discovery": "pass",
+      "live_generation": "runtime_error",
+      "production_weight": "disabled"
+    }
+  },
+  "optional_external_lanes": {
+    "agnes": "adapter_ready_needs_free_key",
+    "kaggle": "needs_free_account_credential",
+    "gemini_web": "needs_authenticated_web_session",
+    "google_flow": "needs_authenticated_browser_session"
+  }
+}
