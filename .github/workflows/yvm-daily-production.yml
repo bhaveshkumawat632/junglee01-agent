@@ -5,6 +5,9 @@ name: YVM Daily Production
 # 15:37 UTC = 21:07 IST.
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/yvm-daily-production.yml"
   schedule:
     - cron: "37 15 * * *"
 
