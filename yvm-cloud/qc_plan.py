@@ -1,89 +1,119 @@
 #!/usr/bin/env python3
-"""Lightweight metadata/script gate for a YVM daily plan."""
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 
-DEVANAGARI=re.compile(r"[\u0900-\u097F]")
-GARBAGE_TITLE=re.compile(
-    r"(?i)(?:^|\b)(?:final[_ -]?video|output|render|scene[_ -]?\d+|"
-    r"\d{8}[_-]\d{6}|\d{4}[-_]\d{2}[-_]\d{2})(?:\b|$)"
+GARBAGE_TITLE = re.compile(
+        r"(?:^|\b)(?:final[_\s-]*video|output|render|scene[_\s-]*\d+|\d{8}[_\s-]*\d{6})(?:\b|$)",
+        re.I
 )
 
-def text(d,key):
-    return str(d.get(key) or "").strip()
+STOP_WORDS = {
+        "the", "and", "for", "with", "from", "that", "this", "global", "magazine",
+        "what", "how", "why", "when", "where", "which", "into", "over", "about",
+        "your", "does", "been", "have", "will", "more", "their", "they", "them",
+        "there", "here", "are", "changing", "behind", "matter", "matters", "story"
+}
+
+def text(d, key):
+        return str(d.get(key) or "").strip()
 
 def main():
-    ap=argparse.ArgumentParser()
-    ap.add_argument("plan")
-    ap.add_argument("--min-scenes",type=int,default=8)
-    a=ap.parse_args()
-    d=json.loads(Path(a.plan).read_text(encoding="utf-8"))
+        ap = argparse.ArgumentParser()
+        ap.add_argument("plan")
+        ap.add_argument("--min-scenes", type=int, default=8)
+        a = ap.parse_args()
 
-    required=["topic","title_en","title_hi","description_en","description_hi","script_en","script_hi"]
-    missing=[k for k in required if not text(d,k)]
-    if missing:
-        raise SystemExit("PLAN QC FAIL: missing "+", ".join(missing))
+    p = Path(a.plan)
+    if not p.exists():
+                raise SystemExit(f"PLAN QC FAIL: plan file does not exist: {p}")
 
-    en=text(d,"title_en")
-    hi=text(d,"title_hi")
-    if en==hi:
-        raise SystemExit("PLAN QC FAIL: English and Hindi titles are identical")
-    if GARBAGE_TITLE.search(en) or GARBAGE_TITLE.search(hi):
-        raise SystemExit("PLAN QC FAIL: filename/timestamp-style title detected")
-    if len(en)>100 or len(hi)>100:
-        raise SystemExit("PLAN QC FAIL: title exceeds 100 characters")
-    if not DEVANAGARI.search(hi):
-        raise SystemExit("PLAN QC FAIL: Hindi title has no Devanagari text")
-    if not DEVANAGARI.search(text(d,"script_hi")):
-        raise SystemExit("PLAN QC FAIL: Hindi script has no Devanagari text")
-    if text(d,"script_en")==text(d,"script_hi"):
-        raise SystemExit("PLAN QC FAIL: English and Hindi scripts are identical")
+    d = json.loads(p.read_text(encoding="utf-8"))
 
-    scenes=list(d.get("scene_prompts") or [])
-    if len(scenes)<a.min_scenes:
-        raise SystemExit(
-            f"PLAN QC FAIL: only {len(scenes)} scene prompts; need {a.min_scenes}"
-        )
-    checked=[str(x).strip() for x in scenes[:a.min_scenes]]
-    if any(len(x)<180 for x in checked):
-        raise SystemExit("PLAN QC FAIL: one or more scene prompts are too short for production-quality visual direction")
+    required = ["topic", "title_en", "title_hi", "description_en", "description_hi", "script_en", "script_hi"]
+    for k in required:
+                if not text(d, k):
+                                raise SystemExit(f"PLAN QC FAIL: missing required field '{k}'")
 
-    required_visual_terms=("photorealistic","no visible words","no logos","no mannequins","no distorted anatomy","no 3d render")
-    for idx,prompt in enumerate(checked,1):
-        low=prompt.lower()
-        missing_terms=[x for x in required_visual_terms if x not in low]
-        if missing_terms:
-            raise SystemExit(
-                f"PLAN QC FAIL: scene {idx} missing visual safety contract: "+", ".join(missing_terms)
-            )
+            if text(d, "title_en") == text(d, "title_hi"):
+                        raise SystemExit("PLAN QC FAIL: English and Hindi titles are identical")
 
-    topic_tokens=[
-        x for x in re.findall(r"[A-Za-z]{3,}", text(d,"topic").lower())
-        if x not in {"the","and","for","with","from","that","this","global","magazine"}
-    ]
-    topical=sum(1 for p in checked if any(tok in p.lower() for tok in topic_tokens))
-    if topic_tokens and topical < max(4, a.min_scenes//2):
-        raise SystemExit(
-            f"PLAN QC FAIL: only {topical} scene prompts are explicitly tied to the topic"
-        )
+    for k in ("title_en", "title_hi"):
+                if GARBAGE_TITLE.search(text(d, k)):
+                                raise SystemExit(f"PLAN QC FAIL: garbage/placeholder pattern detected in {k}: '{text(d, k)}'")
 
-    tags_en=list(d.get("tags_en") or [])
-    tags_hi=list(d.get("tags_hi") or [])
-    if not tags_en or not tags_hi:
-        raise SystemExit("PLAN QC FAIL: language-specific tags missing")
+            for k in ("title_en", "title_hi"):
+                        if len(text(d, k)) > 100:
+                                        raise SystemExit(f"PLAN QC FAIL: {k} exceeds 100 characters ({len(text(d, k))})")
 
-    print(json.dumps({
-        "status":"PASS",
-        "topic":text(d,"topic"),
-        "title_en_length":len(en),
-        "title_hi_length":len(hi),
-        "scene_prompt_count":len(scenes),
-        "tags_en_count":len(tags_en),
-        "tags_hi_count":len(tags_hi),
-        "hindi_devanagari_present":True,
-    },ensure_ascii=False,indent=2))
+                    if not re.search(r"[\u0900-\u097F]", text(d, "title_hi")):
+                                raise SystemExit("PLAN QC FAIL: Hindi title contains no Devanagari characters")
 
-if __name__=="__main__":
-    main()
+    if not re.search(r"[\u0900-\u097F]", text(d, "script_hi")):
+                raise SystemExit("PLAN QC FAIL: Hindi script contains no Devanagari characters")
+
+    if text(d, "script_en") == text(d, "script_hi"):
+                raise SystemExit("PLAN QC FAIL: English and Hindi scripts are identical")
+
+    bad_starters = ("hello", "today we", "in this video", "here is the story", "here is what", "hey guys")
+    en_low = text(d, "script_en").lower()
+    if any(en_low.startswith(s) for s in bad_starters):
+                raise SystemExit("PLAN QC FAIL: English script starts with a generic opening instead of a high-retention hook")
+
+    prompts = d.get("scene_prompts")
+    if not isinstance(prompts, list):
+                raise SystemExit("PLAN QC FAIL: scene_prompts must be a list")
+            if len(prompts) < a.min_scenes:
+                        raise SystemExit(f"PLAN QC FAIL: insufficient scene prompts ({len(prompts)} < {a.min_scenes})")
+
+    checked = [str(x or "").strip() for x in prompts[:a.min_scenes]]
+
+    for idx, prompt_str in enumerate(checked, 1):
+                if len(prompt_str) < 180:
+                                raise SystemExit(f"PLAN QC FAIL: scene {idx} prompt is too short ({len(prompt_str)} < 180 chars)")
+
+            required_safety_terms = [
+                        "photorealistic",
+                        "no visible words",
+                        "no logos",
+                        "no mannequins",
+                        "no distorted anatomy",
+                        "no 3d render"
+            ]
+    for idx, prompt_str in enumerate(checked, 1):
+                low = prompt_str.lower()
+                for term in required_safety_terms:
+                                if term not in low:
+                                                    raise SystemExit(f"PLAN QC FAIL: scene {idx} missing required safety term '{term}'")
+
+                        topic_tokens = [
+                                    x for x in re.findall(r"[A-Za-z]{3,}", text(d, "topic").lower())
+                                    if x not in STOP_WORDS
+                        ]
+
+    topical = sum(1 for p in checked if any(tok in p.lower() for tok in topic_tokens))
+    required_topical = max(4, a.min_scenes // 2)
+
+    if topic_tokens and topical < required_topical:
+                raise SystemExit(
+                    f"PLAN QC FAIL: only {topical} scene prompts are explicitly tied to the topic (required: {required_topical})"
+    )
+
+    for k in ("tags_en", "tags_hi"):
+                tags = d.get(k)
+        if not isinstance(tags, list) or not tags:
+                        raise SystemExit(f"PLAN QC FAIL: {k} must be a non-empty list of tags")
+
+    result = {
+                "status": "PLAN_QC_PASS",
+                "topic": text(d, "topic"),
+                "topical_scene_count": topical,
+                "checked_scenes": len(checked),
+                "topic_tokens": topic_tokens,
+    }
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+if __name__ == "__main__":
+        main()
