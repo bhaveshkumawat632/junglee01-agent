@@ -80,7 +80,7 @@ jobs:
           retention-days: 2
 
       - name: Require YouTube OAuth before public upload
-        if: ${{ vars.YVM_PRODUCTION_ENABLED == 'true' && vars.YVM_PUBLIC_PUBLISH_ENABLED == 'true' }}
+        if: ${{ vars.YVM_PUBLIC_PUBLISH_ENABLED == 'true' }}
         env:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
@@ -88,10 +88,21 @@ jobs:
         run: python yvm-cloud/youtube_preflight.py
 
       - name: Upload both videos to YouTube only after creative publish approval
-        if: ${{ vars.YVM_PRODUCTION_ENABLED == 'true' && vars.YVM_PUBLIC_PUBLISH_ENABLED == 'true' }}
+        if: ${{ vars.YVM_PUBLIC_PUBLISH_ENABLED == 'true' }}
         env:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         run: |
-          python yvm-cloud/upload_pair.py             --result out/daily/result.json             --privacy public
+          python yvm-cloud/upload_pair.py \
+            --result out/daily/result.json \
+            --privacy public \
+            --proof out/daily/youtube_upload_result.json
+
+      - name: Upload YouTube publication proof
+        if: ${{ vars.YVM_PUBLIC_PUBLISH_ENABLED == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: yvm-youtube-proof-${{ github.run_id }}
+          path: out/daily/youtube_upload_result.json
+          retention-days: 14
