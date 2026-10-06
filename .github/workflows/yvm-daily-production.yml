@@ -11,6 +11,8 @@ on:
       - ".github/workflows/yvm-daily-production.yml"
       - "yvm-cloud/daily_plan.py"
       - "yvm-cloud/qc_plan.py"
+      - "yvm-cloud/qc_creative.py"
+      - "yvm-cloud/requirements.txt"
   schedule:
     - cron: "37 15 * * *"
 
@@ -49,6 +51,19 @@ jobs:
           python yvm-cloud/qc_video.py out/daily/render/final_hi.mp4 --min-duration 59.5 --min-width 1000 --min-height 1800 --require-audio --video-codec h264 --audio-codec aac
           python yvm-cloud/qc_pair.py --en-video out/daily/render/final_en.mp4 --hi-video out/daily/render/final_hi.mp4 --en-subtitles out/daily/render/subtitles_en.srt --hi-subtitles out/daily/render/subtitles_hi.srt --min-cues 3
 
+      - name: Run automated creative quality gate
+        run: |
+          python yvm-cloud/qc_creative.py \
+            --video out/daily/render/final_en.mp4 \
+            --plan out/daily/plan.json \
+            --expected-scenes 12 \
+            --min-detected-scenes 8 \
+            --max-long-scene 12 \
+            --min-adj-hash-diff 0.06 \
+            --min-pair-hash-diff 0.10 \
+            --min-clip-score 0.18 \
+            --min-good-margin -0.01 | tee out/daily/creative_qc.json
+
       - name: Upload production package artifact
         uses: actions/upload-artifact@v4
         with:
@@ -61,6 +76,7 @@ jobs:
             out/daily/render/final_hi.mp4
             out/daily/render/subtitles_en.srt
             out/daily/render/subtitles_hi.srt
+            out/daily/creative_qc.json
           retention-days: 2
 
       - name: Require YouTube OAuth before public upload
