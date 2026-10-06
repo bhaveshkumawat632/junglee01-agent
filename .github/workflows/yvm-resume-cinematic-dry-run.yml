@@ -1,9 +1,13 @@
 name: YVM Resume Cinematic Dry Run
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - ".github/workflows/yvm-resume-cinematic-dry-run.yml"
+      - "yvm-cloud/run_daily.py"
+      - "yvm-cloud/qc_motion.py"
+      - "yvm-cloud/kaggle_batch_generate.py"
 
 permissions:
   contents: read
