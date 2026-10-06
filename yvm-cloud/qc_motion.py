@@ -54,6 +54,8 @@ def main():
     ap.add_argument("--min-avg-diff", type=float, default=0.50)
     ap.add_argument("--min-span-diff", type=float, default=1.50)
     ap.add_argument("--min-unique-ratio", type=float, default=0.50)
+    ap.add_argument("--motion-mode", choices=("all", "any"), default="all",
+                    help="all: avg and span thresholds must pass; any: either motion threshold may pass. Unique-frame ratio is always required.")
     a = ap.parse_args()
 
     meta = probe(a.file)
@@ -78,10 +80,19 @@ def main():
     }
 
     failures = []
-    if avg_diff < a.min_avg_diff:
-        failures.append(f"avg motion {avg_diff:.4f} < {a.min_avg_diff}")
-    if span_diff < a.min_span_diff:
-        failures.append(f"span motion {span_diff:.4f} < {a.min_span_diff}")
+    avg_ok = avg_diff >= a.min_avg_diff
+    span_ok = span_diff >= a.min_span_diff
+    if a.motion_mode == "all":
+        if not avg_ok:
+            failures.append(f"avg motion {avg_diff:.4f} < {a.min_avg_diff}")
+        if not span_ok:
+            failures.append(f"span motion {span_diff:.4f} < {a.min_span_diff}")
+    elif not (avg_ok or span_ok):
+        failures.append(
+            "motion below both thresholds "
+            f"(avg {avg_diff:.4f} < {a.min_avg_diff}; "
+            f"span {span_diff:.4f} < {a.min_span_diff})"
+        )
     if unique_ratio < a.min_unique_ratio:
         failures.append(f"unique ratio {unique_ratio:.4f} < {a.min_unique_ratio}")
     if failures:
