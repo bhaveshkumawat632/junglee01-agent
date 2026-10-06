@@ -34,6 +34,8 @@ def main():
     ap.add_argument("--final-duration",type=int,default=60)
     ap.add_argument("--free-video-bonus",type=int,default=2)
     ap.add_argument("--min-ai-motion-scenes",type=int,default=0)
+    ap.add_argument("--reuse-plan",action="store_true")
+    ap.add_argument("--reuse-kaggle-batch",action="store_true")
     a=ap.parse_args()
 
     wd=Path(a.workdir)
@@ -44,10 +46,15 @@ def main():
     assets.mkdir(parents=True,exist_ok=True)
 
     plan_path=wd/"plan.json"
-    cmd=[sys.executable,HERE/"daily_plan.py","--output",plan_path]
-    if a.topic:
-        cmd += ["--topic",a.topic]
-    run(cmd)
+    if a.reuse_plan:
+        if not plan_path.exists():
+            raise SystemExit(f"REUSE_PLAN_MISSING={plan_path}")
+        print(f"REUSE_PLAN={plan_path}", flush=True)
+    else:
+        cmd=[sys.executable,HERE/"daily_plan.py","--output",plan_path]
+        if a.topic:
+            cmd += ["--topic",a.topic]
+        run(cmd)
     run([sys.executable,HERE/"qc_plan.py",plan_path,"--min-scenes",str(min(8,a.scenes))])
     plan=json.loads(plan_path.read_text())
     prompts=list(plan["scene_prompts"])
@@ -73,14 +80,17 @@ def main():
     motion_providers=[]
     if os.getenv("KAGGLE_API_TOKEN") and os.getenv("KAGGLE_USERNAME"):
         try:
-            run([
+            batch_cmd=[
                 sys.executable,HERE/"kaggle_batch_generate.py",
                 "--plan",plan_path,
                 "--out-dir",clips,
                 "--count",str(a.scenes),
                 "--duration",str(a.clip_duration),
                 "--timeout-minutes","80",
-            ])
+            ]
+            if a.reuse_kaggle_batch:
+                batch_cmd.append("--reuse-existing")
+            run(batch_cmd)
             staged=[]
             for i in range(1,a.scenes+1):
                 tmp=clips/f"scene_{i:02d}.ai.mp4"
@@ -93,7 +103,12 @@ def main():
                     "--min-width","300","--min-height","550",
                     "--video-codec","h264"
                 ])
-                run([sys.executable,HERE/"qc_motion.py",tmp])
+                run([
+                    sys.executable,HERE/"qc_motion.py",tmp,
+                    "--min-avg-diff","0.15",
+                    "--min-span-diff","0.50",
+                    "--min-unique-ratio","0.50",
+                ])
                 staged.append((tmp,dest))
             for tmp,dest in staged:
                 tmp.replace(dest)
