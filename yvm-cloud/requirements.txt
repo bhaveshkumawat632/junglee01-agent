@@ -7,3 +7,6 @@ gradio_client>=1.3,<3
 Pillow>=10,<13
 google-auth-oauthlib>=1.2,<2
 kaggle>=1.7,<2
+scenedetect[opencv]>=0.6.4,<0.7
+open-clip-torch>=2.30,<4
+numpy>=1.26,<3
