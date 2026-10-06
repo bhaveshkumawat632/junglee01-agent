@@ -1,7 +1,8 @@
 name: YVM Daily Production
 
 # Safe schedule is installed now, but the scheduled job is skipped until
-# YVM_PRODUCTION_ENABLED=true after YouTube OAuth is connected.
+# YVM_PRODUCTION_ENABLED=true enables cloud generation. Public publishing additionally
+# requires YVM_PUBLIC_PUBLISH_ENABLED=true after visual-quality approval.
 # 15:37 UTC = 21:07 IST.
 on:
   workflow_dispatch:
@@ -61,15 +62,15 @@ jobs:
           retention-days: 2
 
       - name: Require YouTube OAuth before public upload
-        if: ${{ vars.YVM_PRODUCTION_ENABLED == 'true' }}
+        if: ${{ vars.YVM_PRODUCTION_ENABLED == 'true' && vars.YVM_PUBLIC_PUBLISH_ENABLED == 'true' }}
         env:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         run: python yvm-cloud/youtube_preflight.py
 
-      - name: Upload both videos to YouTube
-        if: ${{ vars.YVM_PRODUCTION_ENABLED == 'true' }}
+      - name: Upload both videos to YouTube only after creative publish approval
+        if: ${{ vars.YVM_PRODUCTION_ENABLED == 'true' && vars.YVM_PUBLIC_PUBLISH_ENABLED == 'true' }}
         env:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
