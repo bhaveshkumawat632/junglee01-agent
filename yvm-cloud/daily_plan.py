@@ -168,24 +168,20 @@ def clip_title(value, max_chars=100):
 def fallback_plan(topic):
     en=(
         f"Here is the useful story behind {topic}. The headline may move quickly, so focus first on what is actually known. "
-        "Identify the confirmed event, who announced it, who could be affected, and which details are still uncertain. "
+        "Identify the confirmed event and which details are still uncertain. "
         "Then look at the mechanism: how could this change technology, money, business, customers, or markets in practice? "
         "The first online reaction is often louder than the long-term impact, so one viral post is never enough evidence. "
         "Check the original announcement, compare several reliable reports, and separate verified facts from forecasts. "
-        "Watch for the next measurable signal, such as a product release, filing, price change, adoption number, or official update. "
-        "That second piece of evidence often tells you more than the first headline. "
-        "The practical takeaway is simple: understand what changed, why it matters, and what evidence would confirm the story before making a decision. "
-        "Stay curious, but let verified updates lead the conclusion."
+        "Watch for the next measurable signal, such as a product release, filing, or official update. "
+        "The practical takeaway is simple: understand what changed, why it matters, and what evidence would confirm the story before making a decision."
     )
     hi=(
-        f"{topic} के पीछे की असली काम की बात समझिए। Headline तेजी से बदल सकती है, इसलिए सबसे पहले यह देखें कि confirmed event क्या है, "
-        "इसे किसने announce किया और कौन-सी बातें अभी भी uncertain हैं। फिर mechanism समझिए: इसका असर technology, money, business, "
+        f"{topic} के पीछे की असली काम की बात समझिए। Headline तेजी से बदल सकती है, इसलिए सबसे पहले यह देखें कि confirmed event क्या है "
+        "और कौन-सी बातें अभी भी uncertain हैं। फिर mechanism समझिए: इसका असर technology, money, business, "
         "customers या markets पर practically कैसे पड़ सकता है? Online पहली reaction अक्सर long-term impact से ज्यादा तेज होती है, "
         "इसलिए एक viral post को evidence मत मानिए। Original announcement देखें, कई reliable reports compare करें और verified facts को "
-        "forecasts से अलग रखें। इसके बाद अगला measurable signal देखें—जैसे official update, product release, filing, price change, "
-        "adoption number या कोई confirmed result। अक्सर यही दूसरा signal पहली headline से ज्यादा useful होता है। "
-        "Practical lesson साफ है: decision लेने से पहले समझिए कि क्या बदला, क्यों matter करता है और कौन-सा evidence इस story को confirm करेगा। "
-        "Curious रहिए, लेकिन conclusion verified updates के आधार पर बनाइए।"
+        "forecasts से अलग रखें। इसके बाद अगला measurable signal देखें—जैसे official update, product release या कोई confirmed result। "
+        "Practical lesson साफ है: decision लेने से पहले समझिए कि क्या बदला, क्यों matter करता है और कौन-सा evidence इस story को confirm करेगा।"
     )
     quality_tail="photorealistic documentary footage, natural anatomy, coherent objects, no visible words, no signage, no UI text, no logos, no watermarks, no mannequins, no distorted anatomy, no extra limbs, no surreal objects, no 3D render, no illustration"
     motifs=[
@@ -233,6 +229,7 @@ def main():
     a=ap.parse_args()
     rows=research()
     topic=a.topic or choose_topic(rows)
+    topic=clip_title(topic, 100)
 
     plan=None
     failures=[]
