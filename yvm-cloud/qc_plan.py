@@ -46,8 +46,28 @@ def main():
         raise SystemExit(
             f"PLAN QC FAIL: only {len(scenes)} scene prompts; need {a.min_scenes}"
         )
-    if any(len(str(x).strip())<20 for x in scenes[:a.min_scenes]):
-        raise SystemExit("PLAN QC FAIL: one or more scene prompts are too short")
+    checked=[str(x).strip() for x in scenes[:a.min_scenes]]
+    if any(len(x)<180 for x in checked):
+        raise SystemExit("PLAN QC FAIL: one or more scene prompts are too short for production-quality visual direction")
+
+    required_visual_terms=("photorealistic","no visible words","no logos","no mannequins","no distorted anatomy","no 3d render")
+    for idx,prompt in enumerate(checked,1):
+        low=prompt.lower()
+        missing_terms=[x for x in required_visual_terms if x not in low]
+        if missing_terms:
+            raise SystemExit(
+                f"PLAN QC FAIL: scene {idx} missing visual safety contract: "+", ".join(missing_terms)
+            )
+
+    topic_tokens=[
+        x for x in re.findall(r"[A-Za-z]{3,}", text(d,"topic").lower())
+        if x not in {"the","and","for","with","from","that","this","global","magazine"}
+    ]
+    topical=sum(1 for p in checked if any(tok in p.lower() for tok in topic_tokens))
+    if topic_tokens and topical < max(4, a.min_scenes//2):
+        raise SystemExit(
+            f"PLAN QC FAIL: only {topical} scene prompts are explicitly tied to the topic"
+        )
 
     tags_en=list(d.get("tags_en") or [])
     tags_hi=list(d.get("tags_hi") or [])
