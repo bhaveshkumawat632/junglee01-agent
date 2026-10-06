@@ -104,7 +104,7 @@ def production_prompt(topic):
         + "Requirements: factual, high-retention, monetization-friendly; 55-60 second English narration "
         + "and a natural Hindi narration conveying the same verified points; Hindi title must contain Devanagari; "
         + "hook within first 2 seconds; exactly 12 cinematic realistic 9:16 scene prompts, each intended for about 5 seconds. "
-        + "Every scene prompt must be topic-specific and describe a grounded documentary shot with a concrete subject, action, environment, "
+        + "Every scene prompt must explicitly repeat the core topic entities/keywords (company, market, technology, event, or named subject) so automated topical QC can verify relevance. " + "Every scene prompt must be topic-specific and describe a grounded documentary shot with a concrete subject, action, environment, "
         + "camera framing/movement, lens feel, and lighting. Prefer real locations, believable props, medium/wide or over-the-shoulder human shots, "
         + "and visually distinct scenes that advance the narration. Avoid front-facing screens, posters, signs, dashboards, documents, or any surface "
         + "that invites generated lettering; if a display is unavoidable, keep it defocused with no legible interface. Human shots must use normal clothing "
