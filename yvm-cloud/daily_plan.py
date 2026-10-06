@@ -103,8 +103,16 @@ def production_prompt(topic):
         + "Return ONLY valid JSON matching: " + json.dumps(schema) + "\n"
         + "Requirements: factual, high-retention, monetization-friendly; 55-60 second English narration "
         + "and a natural Hindi narration conveying the same verified points; Hindi title must contain Devanagari; "
-        + "hook within first 2 seconds; exactly 12 cinematic realistic 9:16 scene prompts, each intended for about 5 seconds; "
-        + "no readable text, logos, copyrighted characters, fabricated quotes or unsupported precise numbers. "
+        + "hook within first 2 seconds; exactly 12 cinematic realistic 9:16 scene prompts, each intended for about 5 seconds. "
+        + "Every scene prompt must be topic-specific and describe a grounded documentary shot with a concrete subject, action, environment, "
+        + "camera framing/movement, lens feel, and lighting. Prefer real locations, believable props, medium/wide or over-the-shoulder human shots, "
+        + "and visually distinct scenes that advance the narration. Avoid front-facing screens, posters, signs, dashboards, documents, or any surface "
+        + "that invites generated lettering; if a display is unavoidable, keep it defocused with no legible interface. Human shots must use normal clothing "
+        + "and natural anatomy; avoid mannequins, plastic skin, fashion poses, exposed bodies, close-up fingers, or awkward hand interactions. "
+        + "Each prompt must explicitly end with: 'photorealistic documentary footage, natural anatomy, coherent objects, no visible words, no signage, "
+        + "no UI text, no logos, no watermarks, no mannequins, no distorted anatomy, no extra limbs, no surreal objects, no 3D render, no illustration'. "
+        + "Do not use generic filler b-roll that could fit any topic. "
+        + "No copyrighted characters, fabricated quotes or unsupported precise numbers. "
         + "If the headline is uncertain, frame it cautiously instead of inventing facts. "
         + "End with a brief useful curiosity/engagement line, not clickbait spam."
     )
@@ -172,19 +180,20 @@ def fallback_plan(topic):
         "Practical lesson साफ है: decision लेने से पहले समझिए कि क्या बदला, क्यों matter करता है और कौन-सा evidence इस story को confirm करेगा। "
         "Curious रहिए, लेकिन conclusion verified updates के आधार पर बनाइए।"
     )
+    quality_tail="photorealistic documentary footage, natural anatomy, coherent objects, no visible words, no signage, no UI text, no logos, no watermarks, no mannequins, no distorted anatomy, no extra limbs, no surreal objects, no 3D render, no illustration"
     motifs=[
-        f"cinematic vertical documentary opening representing {topic}, realistic practical lighting, no text",
-        "close-up of smartphone and laptop news research, realistic hands, shallow depth of field, vertical",
-        "modern technology office with abstract data screens, no readable text or logos, vertical",
-        "financial district morning street scene, documentary realism, vertical composition",
-        "analyst reviewing several information sources, natural human motion, vertical",
-        "macro view of abstract market charts on CRT and modern displays, no readable text, vertical",
-        "semiconductor and server hardware detail, cinematic macro shot, vertical",
-        "business meeting with natural expressions and realistic anatomy, vertical",
-        "city infrastructure and data center exterior at dusk, cinematic vertical",
-        "person calmly taking notes beside laptop, premium natural lighting, vertical",
-        "wide shot of active modern office with subtle camera motion, realistic, vertical",
-        "cinematic closing city skyline and technology reflections, no text, vertical",
+        f"Vertical documentary establishing shot for {topic}: real financial district at blue hour, office workers entering a modern glass building, slow stabilized push-in, 35mm lens feel, practical city lighting, believable architecture; {quality_tail}",
+        f"Vertical over-the-shoulder research shot tied to {topic}: analyst in normal business clothing comparing printed notes and a laptop whose screen is angled away and defocused, subtle handheld camera drift, 50mm lens feel, soft window light; {quality_tail}",
+        f"Vertical AI-in-finance infrastructure shot for {topic}: real server racks and cooling aisles inside a modern data center, technicians seen from behind at a distance, slow lateral dolly, 35mm lens feel, cool practical lighting; {quality_tail}",
+        f"Vertical Wall Street context shot for {topic}: busy financial-district sidewalk with suited workers crossing between stone-and-glass office buildings, natural pedestrian motion, stabilized street-level tracking shot, 35mm lens feel, morning light; {quality_tail}",
+        f"Vertical workplace-anxiety visual for {topic}: small finance team in a conference room listening to a colleague present without visible screens or boards, natural expressions, medium-wide composition, slow slider move, 50mm lens feel, neutral office lighting; {quality_tail}",
+        f"Vertical market-operations shot for {topic}: close view of hands placing color-coded paper cards and physical tokens on a clean desk to represent changing workflows, no screens and no writing, controlled overhead camera move, 50mm lens feel, soft practical lighting; {quality_tail}",
+        f"Vertical technology investment shot for {topic}: macro details of real server components, network switches, cooling fans and cable management, slow rack focus, 85mm macro lens feel, dramatic but realistic practical light; {quality_tail}",
+        f"Vertical human-work shot for {topic}: two finance professionals in normal business attire discussing a printed chart whose markings are out of focus, waist-up framing, realistic faces and hands kept relaxed, slow handheld documentary motion, 50mm lens feel; {quality_tail}",
+        f"Vertical corporate infrastructure shot for {topic}: exterior of a real office tower at dusk with workers visible only as small silhouettes through windows, slow tilt upward, 35mm lens feel, natural city illumination; {quality_tail}",
+        f"Vertical decision-making shot for {topic}: analyst seen from behind writing simple non-readable marks in a notebook beside a closed laptop, medium shot, gentle push-in, 50mm lens feel, warm window light; {quality_tail}",
+        f"Vertical modern-office transition for {topic}: active open-plan finance office with people moving naturally in the background, no visible screens facing camera, wide composition, slow gimbal move, 35mm lens feel, balanced daylight; {quality_tail}",
+        f"Vertical closing shot for {topic}: real financial skyline at sunset seen from street level with moving traffic reflections on glass, slow stabilized pull-back, 35mm lens feel, realistic atmospheric light; {quality_tail}",
     ]
     return {
         "topic":topic,
