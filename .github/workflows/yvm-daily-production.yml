@@ -9,6 +9,8 @@ on:
   push:
     paths:
       - ".github/workflows/yvm-daily-production.yml"
+      - "yvm-cloud/daily_plan.py"
+      - "yvm-cloud/qc_plan.py"
   schedule:
     - cron: "37 15 * * *"
 
