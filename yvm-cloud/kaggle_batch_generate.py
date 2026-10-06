@@ -50,6 +50,8 @@ def main():
     ap.add_argument("--count",type=int,default=12)
     ap.add_argument("--duration",type=float,default=5.0)
     ap.add_argument("--timeout-minutes",type=int,default=80)
+    ap.add_argument("--reuse-existing",action="store_true",
+                    help="Reuse the latest completed Kaggle batch output without submitting a new GPU kernel")
     a=ap.parse_args()
 
     user=os.getenv("KAGGLE_USERNAME","").strip()
@@ -94,36 +96,39 @@ def main():
         }
         (td/"kernel-metadata.json").write_text(json.dumps(metadata,indent=2))
 
-        run([
-            "kaggle","kernels","push",
-            "-p",td,
-            "--timeout","3600",
-            "--accelerator","NvidiaTeslaT4",
-        ])
+        if not a.reuse_existing:
+            run([
+                "kaggle","kernels","push",
+                "-p",td,
+                "--timeout","3600",
+                "--accelerator","NvidiaTeslaT4",
+            ])
 
-        deadline=time.time()+a.timeout_minutes*60
-        while time.time()<deadline:
-            p=run(["kaggle","kernels","status",handle],check=False,capture=True)
-            status=((p.stdout or "")+"\n"+(p.stderr or "")).strip()
-            print(status,flush=True)
-            low=status.lower()
-            if "complete" in low:
-                break
-            if any(x in low for x in ("error","failed","cancel","permission","denied","forbidden","not found","cannot access","could not find")):
+            deadline=time.time()+a.timeout_minutes*60
+            while time.time()<deadline:
+                p=run(["kaggle","kernels","status",handle],check=False,capture=True)
+                status=((p.stdout or "")+"\n"+(p.stderr or "")).strip()
+                print(status,flush=True)
+                low=status.lower()
+                if "complete" in low:
+                    break
+                if any(x in low for x in ("error","failed","cancel","permission","denied","forbidden","not found","cannot access","could not find")):
+                    logs=run(["kaggle","kernels","logs",handle],check=False,capture=True)
+                    (out/"kaggle_batch_logs.txt").write_text(
+                        (logs.stdout or "")+"\n"+(logs.stderr or ""),
+                        encoding="utf-8"
+                    )
+                    raise SystemExit("KAGGLE_BATCH_FAILED")
+                time.sleep(30)
+            else:
                 logs=run(["kaggle","kernels","logs",handle],check=False,capture=True)
                 (out/"kaggle_batch_logs.txt").write_text(
                     (logs.stdout or "")+"\n"+(logs.stderr or ""),
                     encoding="utf-8"
                 )
-                raise SystemExit("KAGGLE_BATCH_FAILED")
-            time.sleep(30)
+                raise SystemExit("KAGGLE_BATCH_TIMEOUT")
         else:
-            logs=run(["kaggle","kernels","logs",handle],check=False,capture=True)
-            (out/"kaggle_batch_logs.txt").write_text(
-                (logs.stdout or "")+"\n"+(logs.stderr or ""),
-                encoding="utf-8"
-            )
-            raise SystemExit("KAGGLE_BATCH_TIMEOUT")
+            print(f"KAGGLE_BATCH_REUSE_EXISTING={handle}", flush=True)
 
         download=td/"output"
         download.mkdir()
