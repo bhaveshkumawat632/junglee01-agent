@@ -158,6 +158,13 @@ def pollinations_plan(topic):
     r.raise_for_status()
     return extract_json(r.json()["choices"][0]["message"]["content"]), "pollinations_public"
 
+def clip_title(value, max_chars=100):
+    value=" ".join(str(value or "").split())
+    if len(value) <= max_chars:
+        return value
+    clipped=value[:max_chars].rsplit(" ",1)[0].rstrip(" -–—:;,")
+    return clipped or value[:max_chars].rstrip(" -–—:;,")
+
 def fallback_plan(topic):
     en=(
         f"Here is the useful story behind {topic}. The headline may move quickly, so focus first on what is actually known. "
@@ -195,10 +202,11 @@ def fallback_plan(topic):
         f"Vertical modern-office transition for {topic}: active open-plan finance office with people moving naturally in the background, no visible screens facing camera, wide composition, slow gimbal move, 35mm lens feel, balanced daylight; {quality_tail}",
         f"Vertical closing shot for {topic}: real financial skyline at sunset seen from street level with moving traffic reflections on glass, slow stabilized pull-back, 35mm lens feel, realistic atmospheric light; {quality_tail}",
     ]
+    title_topic=clip_title(topic, 68)
     return {
         "topic":topic,
-        "title_en":topic+" — What Actually Matters",
-        "title_hi":topic+" — असली बात क्या है?",
+        "title_en":clip_title(title_topic+" — What Actually Matters"),
+        "title_hi":clip_title(title_topic+" — असली बात क्या है?"),
         "description_en":"A concise factual breakdown of the technology, money, or business angle behind today's topic.",
         "description_hi":"आज के topic के technology, money या business angle की concise factual breakdown.",
         "script_en":en,
