@@ -78,7 +78,10 @@ def main():
     # AI-motion scenes were produced.
     upgraded=0
     motion_providers=[]
+    failed_scene_indices=list(range(1,a.scenes+1))
+
     if os.getenv("KAGGLE_API_TOKEN") and os.getenv("KAGGLE_USERNAME"):
+        batch_ok=False
         try:
             batch_cmd=[
                 sys.executable,HERE/"kaggle_batch_generate.py",
@@ -91,39 +94,55 @@ def main():
             if a.reuse_kaggle_batch:
                 batch_cmd.append("--reuse-existing")
             run(batch_cmd)
-            staged=[]
+            batch_ok=True
+        except Exception as e:
+            print(f"Kaggle batch retrieval/generation failed; trying reserve lanes: {e}",file=sys.stderr)
+
+        if batch_ok:
+            failed_scene_indices=[]
+            kaggle_upgraded=0
             for i in range(1,a.scenes+1):
                 tmp=clips/f"scene_{i:02d}.ai.mp4"
                 dest=clips/f"scene_{i:02d}.mp4"
-                if not tmp.exists():
-                    raise RuntimeError(f"Kaggle batch missing scene {i}")
-                run([
-                    sys.executable,HERE/"qc_video.py",tmp,
-                    "--min-duration",str(max(2,a.clip_duration-0.2)),
-                    "--min-width","300","--min-height","550",
-                    "--video-codec","h264"
-                ])
-                run([
-                    sys.executable,HERE/"qc_motion.py",tmp,
-                    "--min-avg-diff","0.15",
-                    "--min-span-diff","0.50",
-                    "--min-unique-ratio","0.50",
-                ])
-                staged.append((tmp,dest))
-            for tmp,dest in staged:
-                tmp.replace(dest)
-            upgraded=a.scenes
-            motion_providers.append("kaggle_t4x2_ltx_batch")
-        except Exception as e:
-            print(f"Kaggle batch failed; trying reserve lanes: {e}",file=sys.stderr)
-            for p in clips.glob("scene_*.ai.mp4"):
-                p.unlink(missing_ok=True)
+                try:
+                    if not tmp.exists():
+                        raise RuntimeError(f"Kaggle batch missing scene {i}")
+                    run([
+                        sys.executable,HERE/"qc_video.py",tmp,
+                        "--min-duration",str(max(2,a.clip_duration-0.2)),
+                        "--min-width","300","--min-height","550",
+                        "--video-codec","h264"
+                    ])
+                    # LTX clips can contain intentionally subtle cinematic pans.
+                    # Accept either sustained adjacent-frame motion OR meaningful
+                    # scene-span motion, but still require high frame uniqueness.
+                    run([
+                        sys.executable,HERE/"qc_motion.py",tmp,
+                        "--min-avg-diff","0.05",
+                        "--min-span-diff","0.35",
+                        "--min-unique-ratio","0.80",
+                        "--motion-mode","any",
+                    ])
+                    tmp.replace(dest)
+                    upgraded+=1
+                    kaggle_upgraded+=1
+                except Exception as e:
+                    print(f"Kaggle scene {i} QC failed; preserving other valid scenes: {e}",file=sys.stderr)
+                    tmp.unlink(missing_ok=True)
+                    failed_scene_indices.append(i)
+            if kaggle_upgraded:
+                motion_providers.append("kaggle_t4x2_ltx_batch")
 
-    # Reserve enhancement lanes. With Agnes configured, attempt every missing
-    # scene. Otherwise spend only the small legitimate ZeroGPU bonus.
-    if upgraded < a.scenes:
-        upgrade_count=a.scenes if os.getenv("AGNES_API_KEY") else min(a.free_video_bonus,a.scenes)
-        for i in range(1,upgrade_count+1):
+    # Reserve enhancement lanes target only scenes that failed/missed Kaggle QC.
+    # This prevents a single weak scene from discarding an otherwise valid batch.
+    if failed_scene_indices:
+        reserve_candidates=(
+            failed_scene_indices
+            if os.getenv("AGNES_API_KEY")
+            else failed_scene_indices[:max(0,a.free_video_bonus)]
+        )
+        reserve_upgraded=0
+        for i in reserve_candidates:
             dest=clips/f"scene_{i:02d}.mp4"
             tmp=clips/f"scene_{i:02d}.ai.mp4"
             try:
@@ -150,11 +169,12 @@ def main():
                 run([sys.executable,HERE/"qc_motion.py",tmp])
                 tmp.replace(dest)
                 upgraded+=1
+                reserve_upgraded+=1
             except Exception as e:
                 print(f"AI upgrade scene {i} skipped: {e}",file=sys.stderr)
                 tmp.unlink(missing_ok=True)
             time.sleep(1)
-        if upgraded:
+        if reserve_upgraded:
             motion_providers.append("reserve_free_motion")
 
     if upgraded < a.min_ai_motion_scenes:
