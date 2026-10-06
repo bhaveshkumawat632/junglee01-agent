@@ -43,6 +43,16 @@ def main():
     ap.add_argument("--privacy",default="public",choices=["public","unlisted","private"])
     ap.add_argument("--proof",default="out/daily/youtube_upload_result.json")
     a=ap.parse_args()
+    proof_path=Path(a.proof)
+    if proof_path.exists():
+        try:
+            existing_proof = json.loads(proof_path.read_text())
+            if existing_proof.get("status") == "PAIR_UPLOAD_PASS":
+                print(json.dumps(existing_proof,ensure_ascii=False,indent=2))
+                return
+        except Exception:
+            pass
+
     d=json.loads(Path(a.result).read_text())
     if d.get("status")!="READY_FOR_UPLOAD":
         raise SystemExit("Pipeline result is not upload-ready")
