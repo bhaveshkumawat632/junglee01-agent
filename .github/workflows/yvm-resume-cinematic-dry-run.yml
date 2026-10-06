@@ -8,6 +8,8 @@ on:
       - "yvm-cloud/run_daily.py"
       - "yvm-cloud/qc_motion.py"
       - "yvm-cloud/kaggle_batch_generate.py"
+      - "yvm-cloud/render_bilingual.py"
+      - "yvm-cloud/qc_pair.py"
 
 permissions:
   contents: read
