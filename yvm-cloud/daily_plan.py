@@ -207,7 +207,7 @@ def github_models_plan(topic):
         raise RuntimeError("GITHUB_MODELS_TOKEN is not available")
 
     errors = []
-    for model in ("openai/gpt-4.1-mini", "openai/gpt-4o-mini"):
+    for model in ("openai/gpt-4.1-nano", "openai/gpt-4o"):
         body = {
             "model": model,
             "messages": [
@@ -216,21 +216,26 @@ def github_models_plan(topic):
             ],
             "temperature": 0.4,
             "max_tokens": 3600,
-            "response_format": {"type": "json_object"}
+            "response_format": {"type": "json_object"},
+            "stream": False
         }
         try:
             r = requests.post(
                 GITHUB_MODELS_URL,
                 headers={
                     "Authorization": f"Bearer {token}",
-                    "Accept": "application/vnd.github+json",
+                    "Accept": "application/json",
                     "Content-Type": "application/json",
-                    "X-GitHub-Api-Version": "2026-03-10",
+                    "X-GitHub-Api-Version": "2022-11-28",
                 },
                 json=body,
                 timeout=120,
             )
             r.raise_for_status()
+            ctype = (r.headers.get("content-type") or "").lower()
+            if "json" not in ctype:
+                preview = (r.text or "")[:160].replace("\n", " ")
+                raise RuntimeError(f"non-JSON response content-type={ctype!r} body={preview!r}")
             data = r.json()
             content = data.get("choices", [{}])[0].get("message", {}).get("content")
             if not content or not str(content).strip():
