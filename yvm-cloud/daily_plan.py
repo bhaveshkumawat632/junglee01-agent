@@ -231,7 +231,7 @@ def pollinations_plan(topic):
         "model": "openai",
         "messages": [
             {"role": "system", "content": "You are a bilingual factual YouTube Shorts director. Output strict JSON only."},
-            {"role": "user", "content": prole": "user", "content": production_prompt(topic)}
+            {"role": "user", "content": production_prompt(topic)}
         ],
         "temperature": 0.45,
         "max_tokens": 3600
