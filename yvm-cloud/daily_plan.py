@@ -11,6 +11,7 @@ from pathlib import Path
 import requests
 
 LLM7_BASE = "https://api.llm7.io/v1"
+GITHUB_MODELS_URL = "https://models.github.ai/inference/chat/completions"
 POLLINATIONS_URL = "https://text.pollinations.ai/openai"
 LLMFAUCET_URL = "https://api.llmfaucet.dev/v1/chat/completions"
 TREND_URLS = [
@@ -200,6 +201,47 @@ def production_prompt(topic):
         f"6. Return ONLY valid JSON."
     )
 
+def github_models_plan(topic):
+    token = os.getenv("GITHUB_MODELS_TOKEN")
+    if not token:
+        raise RuntimeError("GITHUB_MODELS_TOKEN is not available")
+
+    errors = []
+    for model in ("openai/gpt-4.1-mini", "openai/gpt-4o-mini"):
+        body = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": "You are a bilingual factual YouTube Shorts director. Output strict JSON only."},
+                {"role": "user", "content": production_prompt(topic)}
+            ],
+            "temperature": 0.4,
+            "max_tokens": 3600,
+            "response_format": {"type": "json_object"}
+        }
+        try:
+            r = requests.post(
+                GITHUB_MODELS_URL,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/vnd.github+json",
+                    "Content-Type": "application/json",
+                    "X-GitHub-Api-Version": "2026-03-10",
+                },
+                json=body,
+                timeout=120,
+            )
+            r.raise_for_status()
+            data = r.json()
+            content = data.get("choices", [{}])[0].get("message", {}).get("content")
+            if not content or not str(content).strip():
+                raise RuntimeError("empty assistant content")
+            return extract_json(str(content)), "github-models/" + model
+        except Exception as e:
+            errors.append(f"{model}: {e}")
+            print(f"GitHub Models model {model} failed: {e}", file=sys.stderr)
+
+    raise RuntimeError("all GitHub Models attempts failed: " + " | ".join(errors))
+
 def llm7_plan(topic):
     auth_header = {"Authorization": "Bearer unused"}
     m = requests.get(LLM7_BASE + "/models", headers=auth_header, timeout=30)
@@ -351,7 +393,7 @@ def main():
 
     plan = None
     failures = []
-    routes = [llm7_plan]
+    routes = [github_models_plan, llm7_plan]
 
     for fn in routes:
         try:
