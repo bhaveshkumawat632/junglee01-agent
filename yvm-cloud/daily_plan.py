@@ -11,8 +11,8 @@ from pathlib import Path
 import requests
 
 LLM7_BASE = "https://api.llm7.io/v1"
-GITHUB_MODELS_URL = "https://models.github.ai/inference/chat/completions"
 POLLINATIONS_URL = "https://text.pollinations.ai/openai"
+BLOCKRUN_URL = "https://blockrun.ai/api/v1/chat/completions"
 LLMFAUCET_URL = "https://api.llmfaucet.dev/v1/chat/completions"
 TREND_URLS = [
     "https://trends.google.com/trending/rss?geo=IN",
@@ -201,51 +201,45 @@ def production_prompt(topic):
         f"6. Return ONLY valid JSON."
     )
 
-def github_models_plan(topic):
-    token = os.getenv("GITHUB_MODELS_TOKEN")
-    if not token:
-        raise RuntimeError("GITHUB_MODELS_TOKEN is not available")
-
+def blockrun_plan(topic):
     errors = []
-    for model in ("openai/gpt-4.1-nano", "openai/gpt-4o"):
+    models = (
+        "nvidia/nemotron-3.5-lightning",
+        "nvidia/gpt-oss-20b",
+        "nvidia/nemotron-3-nano-30b",
+    )
+    for model in models:
         body = {
             "model": model,
             "messages": [
-                {"role": "system", "content": "You are a bilingual factual YouTube Shorts director. Output strict JSON only."},
+                {"role": "system", "content": "You are a bilingual factual YouTube Shorts director. Return one strict JSON object only, with no markdown or commentary."},
                 {"role": "user", "content": production_prompt(topic)}
             ],
             "temperature": 0.4,
             "max_tokens": 3600,
-            "response_format": {"type": "json_object"},
-            "stream": False
+            "stream": False,
         }
         try:
             r = requests.post(
-                GITHUB_MODELS_URL,
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "Accept": "application/json",
-                    "Content-Type": "application/json",
-                    "X-GitHub-Api-Version": "2022-11-28",
-                },
+                BLOCKRUN_URL,
+                headers={"Content-Type": "application/json"},
                 json=body,
-                timeout=120,
+                timeout=180,
             )
             r.raise_for_status()
             ctype = (r.headers.get("content-type") or "").lower()
             if "json" not in ctype:
-                preview = (r.text or "")[:160].replace("\n", " ")
+                preview = (r.text or "")[:200].replace("\n", " ")
                 raise RuntimeError(f"non-JSON response content-type={ctype!r} body={preview!r}")
             data = r.json()
             content = data.get("choices", [{}])[0].get("message", {}).get("content")
             if not content or not str(content).strip():
                 raise RuntimeError("empty assistant content")
-            return extract_json(str(content)), "github-models/" + model
+            return extract_json(str(content)), "blockrun/" + model
         except Exception as e:
             errors.append(f"{model}: {e}")
-            print(f"GitHub Models model {model} failed: {e}", file=sys.stderr)
-
-    raise RuntimeError("all GitHub Models attempts failed: " + " | ".join(errors))
+            print(f"BlockRun model {model} failed: {e}", file=sys.stderr)
+    raise RuntimeError("all BlockRun free model attempts failed: " + " | ".join(errors))
 
 def llm7_plan(topic):
     auth_header = {"Authorization": "Bearer unused"}
@@ -398,7 +392,7 @@ def main():
 
     plan = None
     failures = []
-    routes = [github_models_plan, llm7_plan]
+    routes = [blockrun_plan, llm7_plan]
 
     for fn in routes:
         try:
