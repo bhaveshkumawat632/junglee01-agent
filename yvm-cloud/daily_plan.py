@@ -201,32 +201,53 @@ def production_prompt(topic):
     )
 
 def llm7_plan(topic):
-    auth_header = {"Auth" + "orization": "Bear" + "er free"}
+    auth_header = {"Authorization": "Bearer unused"}
     m = requests.get(LLM7_BASE + "/models", headers=auth_header, timeout=30)
     m.raise_for_status()
     ids = [x.get("id") for x in m.json().get("data", []) if isinstance(x, dict) and x.get("id")]
-    prefs = ["DeepSeek-V4-Flash-0731", "GLM-5.3-Flash", "gemini-3.1-flash-lite", "gemini-3-flash"]
-    model = next((p for p in prefs if p in ids), ids[0] if ids else None)
-    if not model:
+    preferred = [
+        "DeepSeek-V4-Flash-0731",
+        "gpt-oss:20b",
+        "minimax-m2.7",
+        "gemini-3.6-flash-high",
+        "glm-5.3",
+    ]
+    candidates = [model for model in preferred if model in ids]
+    if not candidates:
+        candidates = ids[:4]
+    if not candidates:
         raise RuntimeError("LLM7 returned no live model")
-    body = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": "You are a bilingual factual YouTube Shorts director. Output strict JSON only."},
-            {"role": "user", "content": production_prompt(topic)}
-        ],
-        "temperature": 0.45,
-        "max_tokens": 3600,
-        "response_format": {"type": "json_object"}
-    }
-    r = requests.post(
-        LLM7_BASE + "/chat/completions",
-        headers={"Auth" + "orization": "Bear" + "er free", "Content-Type": "application/json"},
-        json=body, timeout=180
-    )
-    r.raise_for_status()
-    data = r.json()
-    return extract_json(data["choices"][0]["message"]["content"]), "llm7/" + model
+
+    errors = []
+    for model in candidates:
+        body = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": "You are a bilingual factual YouTube Shorts director. Output strict JSON only."},
+                {"role": "user", "content": production_prompt(topic)}
+            ],
+            "temperature": 0.45,
+            "max_tokens": 3600,
+            "response_format": {"type": "json_object"}
+        }
+        try:
+            r = requests.post(
+                LLM7_BASE + "/chat/completions",
+                headers={"Authorization": "Bearer unused", "Content-Type": "application/json"},
+                json=body,
+                timeout=120,
+            )
+            r.raise_for_status()
+            data = r.json()
+            content = data.get("choices", [{}])[0].get("message", {}).get("content")
+            if not content or not str(content).strip():
+                raise RuntimeError("empty assistant content")
+            return extract_json(str(content)), "llm7/" + model
+        except Exception as e:
+            errors.append(f"{model}: {e}")
+            print(f"LLM7 model {model} failed: {e}", file=sys.stderr)
+
+    raise RuntimeError("all LLM7 model attempts failed: " + " | ".join(errors))
 
 def llmfaucet_plan(topic):
     body = {
@@ -330,7 +351,7 @@ def main():
 
     plan = None
     failures = []
-    routes = [llm7_plan, llmfaucet_plan]
+    routes = [llm7_plan]
 
     for fn in routes:
         try:
