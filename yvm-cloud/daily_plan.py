@@ -12,6 +12,7 @@ import requests
 
 LLM7_BASE = "https://api.llm7.io/v1"
 POLLINATIONS_URL = "https://text.pollinations.ai/openai"
+LLMFAUCET_URL = "https://api.llmfaucet.dev/v1/chat/completions"
 TREND_URLS = [
     "https://trends.google.com/trending/rss?geo=IN",
     "https://trends.google.com/trending/rss?geo=US",
@@ -215,7 +216,8 @@ def llm7_plan(topic):
             {"role": "user", "content": production_prompt(topic)}
         ],
         "temperature": 0.45,
-        "max_tokens": 3600
+        "max_tokens": 3600,
+        "response_format": {"type": "json_object"}
     }
     r = requests.post(
         LLM7_BASE + "/chat/completions",
@@ -225,6 +227,29 @@ def llm7_plan(topic):
     r.raise_for_status()
     data = r.json()
     return extract_json(data["choices"][0]["message"]["content"]), "llm7/" + model
+
+def llmfaucet_plan(topic):
+    body = {
+        "model": "auto:smart",
+        "messages": [
+            {"role": "system", "content": "You are a bilingual factual YouTube Shorts director. Output strict JSON only."},
+            {"role": "user", "content": production_prompt(topic)}
+        ],
+        "temperature": 0.45,
+        "max_tokens": 3600
+    }
+    r = requests.post(
+        LLMFAUCET_URL,
+        headers={"Authorization": "Bearer free", "Content-Type": "application/json"},
+        json=body,
+        timeout=180,
+    )
+    r.raise_for_status()
+    data = r.json()
+    content = data.get("choices", [{}])[0].get("message", {}).get("content")
+    if not content:
+        raise RuntimeError("LLMFaucet returned an empty response")
+    return extract_json(content), "llmfaucet/auto:smart"
 
 def pollinations_plan(topic):
     body = {
@@ -281,13 +306,7 @@ def validate_plan(d, topic):
     core_kw = extract_core_keywords(topic)
     topical_scenes = sum(1 for p in d["scene_prompts"] if any(k in p.lower() for k in core_kw))
     if topical_scenes < 8:
-        primary_entity = core_kw[0] if core_kw else topic
-        patched = []
-        for p in d["scene_prompts"]:
-            if not any(k in p.lower() for k in core_kw):
-                p = f"{p.rstrip('; .')}; focusing on {primary_entity} documentary context"
-            patched.append(p)
-        d["scene_prompts"] = patched
+        return False, f"only {topical_scenes} scene prompts are explicitly tied to the topic; need at least 8"
 
     safety_tail = "photorealistic documentary footage, natural anatomy, coherent objects, no visible words, no signage, no UI text, no logos, no watermarks, no mannequins, no distorted anatomy, no extra limbs, no surreal objects, no 3D render, no illustration"
     cleaned_prompts = []
@@ -311,7 +330,7 @@ def main():
 
     plan = None
     failures = []
-    routes = [llm7_plan, pollinations_plan, pollinations_deepseek_plan]
+    routes = [llm7_plan, llmfaucet_plan]
 
     for fn in routes:
         try:
